@@ -20,8 +20,12 @@
 		}
   ],
   "relationships": {
-    "systems": [],
-    "requires": []
+    "requires": [
+			{
+				"id": "lib-wrapper",
+				"manifest": "https://github.com/ruipin/fvtt-lib-wrapper/releases/latest/download/module.json"
+			}
+    ]
   },
   "esmodules": [
     "scripts/export-markdown.js"
