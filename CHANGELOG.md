@@ -1,5 +1,7 @@
 # CHANGELOG
 
-## 0.0.1
+## 0.1.0
 
-Initial commit
+- First provisional release:
+- Tables won't always get converted
+- Images aren't transferred.
