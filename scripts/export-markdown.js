@@ -79,6 +79,7 @@ function convertHtml(doc, html) {
     }
 
     function convertLink(str, id, section, label, offset, string, groups) {
+        if (id.startsWith("Compendium.")) return str;
         let linkeddoc = str.startsWith('@UUID') ? fromUuidSync(id, { relative: doc }) : game.journal.get(id);
         if (!(linkeddoc instanceof JournalEntry || linkeddoc instanceof JournalEntryPage)) return str;
         let journal = linkeddoc.parent || linkeddoc;
@@ -203,28 +204,14 @@ export function exportMarkdown(from, zipname) {
 }
 
 Hooks.once('init', async () => {
-    if (!game.user.isGM) return;
-
-    // FOLDER context menu
-    function addFolderMenu(wrapped, ...args) {
-        return wrapped(...args).concat({
-            name: `${MODULE_NAME}.exportToMarkdown`,
-            icon: '<i class="fas fa-file-zip"></i>',
-            callback: async header => {
-                const li = header.closest(".directory-item")[0];
-                const folder = await fromUuid(li.dataset.uuid);
-                if (!folder) return;
-                exportMarkdown(folder, folder.name)
-            },
-        });
-    }
-    libWrapper.register(MODULE_NAME, "JournalDirectory.prototype._getFolderContextOptions", addFolderMenu, libWrapper.WRAPPER);
+    // If not done during "init" hook, then the journal entry context menu doesn't work
 
     // JOURNAL ENTRY context menu
     function addEntryMenu(wrapped, ...args) {
         return wrapped(...args).concat({
             name: `${MODULE_NAME}.exportToMarkdown`,
             icon: '<i class="fas fa-file-zip"></i>',
+            condition: game.user.isGM,
             callback: async header => {
                 const li = header.closest(".directory-item");
                 const entry = this.collection.get(li.data("entryId"));
@@ -235,12 +222,27 @@ Hooks.once('init', async () => {
     }
     libWrapper.register(MODULE_NAME, "JournalDirectory.prototype._getEntryContextOptions", addEntryMenu, libWrapper.WRAPPER);
 
-    // JOURNAL Directory button  
+    // FOLDER context menu: needs 
+    function addFolderMenu(wrapped, ...args) {
+        return wrapped(...args).concat({
+            name: `${MODULE_NAME}.exportToMarkdown`,
+            icon: '<i class="fas fa-file-zip"></i>',
+            condition: game.user.isGM,
+            callback: async header => {
+                const li = header.closest(".directory-item")[0];
+                const folder = await fromUuid(li.dataset.uuid);
+                if (!folder) return;
+                exportMarkdown(folder, folder.name)
+            },
+        });
+    }
+    libWrapper.register(MODULE_NAME, "JournalDirectory.prototype._getFolderContextOptions", addFolderMenu, libWrapper.WRAPPER);
 })
 
 Hooks.on("renderSidebarTab", async (app, html) => {
     if (game.user.isGM && app instanceof JournalDirectory) {
-        let button = $("<button class='import-cd'><i class='fas fa-file-import'></i>Export to Markdown</button>")
+        const label = game.i18n.localize(`${MODULE_NAME}.exportToMarkdown`);
+        let button = $(`<button class='import-cd'><i class='fas fa-file-zip'></i>${label}</button>`)
         button.click(function () {
             exportMarkdown(app, "JournalDirectory");
         });

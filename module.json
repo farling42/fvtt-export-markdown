@@ -28,12 +28,12 @@
     ]
   },
   "esmodules": [
-    "scripts/export-markdown.js"
-  ],
-  "scripts": [
-    "scripts/lib/jszip.min.js",
+    "scripts/export-markdown.js",
     "scripts/lib/turndown.js",
     "scripts/lib/turndown-plugin-gfm.js"
+  ],
+  "scripts": [
+    "scripts/lib/jszip.min.js"
   ],
   "styles": [
     "styles/module.css"
