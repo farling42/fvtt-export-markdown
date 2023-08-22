@@ -25,6 +25,12 @@ All created links assume that the ZIP is extracted into the root folder of the V
 - Images are not yet exported as part of the ZIP.
 - Tables might not get converted properly.
 
+## Installation
+
+Eventually it will be available on the Foundry packages database.
+
+In the meantime, install manually using the link https://github.com/farling42/fvtt-export-markdown/releases/latest/download/module.json
+
 ## Libraries
 
 - [JSZip](https://stuk.github.io/jszip)
