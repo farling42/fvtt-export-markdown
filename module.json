@@ -1,31 +1,33 @@
 {
-  "id": "module",
-  "title": "New Module",
-  "description": "",
+  "id": "export-markdown",
+  "title": "Markdown Exporter",
+  "description": "Exports one or more journals as a ZIP file containing markdown files in a folder tree",
   "version": "#{VERSION}#",
   "library": "false",
-  "manifestPlusVersion": "1.2.0",
   "compatibility": {
     "minimum": 10,
-    "verified": 10,
-    "maximum": 11
+    "verified": 11
   },
   "authors": [
-    {
-      "name": "The League of Extraordinary FVTT Developers",
-      "url": "https://github.com/League-of-Foundry-Developers",
-      "discord": "discordID#0001"
-    }
+		{
+			"name": "Farling",
+			"url": "https://github.com/farling42",
+			"email": "foundryvtt@amusingtime.uk",
+			"discord": "farling",
+			"ko-fi": "farling",
+			"patreon": "amusingtime",
+			"twitter": "@shambles42"
+		}
   ],
   "relationships": {
     "systems": [],
     "requires": []
   },
   "esmodules": [
-    "scripts/module.js"
+    "scripts/export-markdown.js"
   ],
   "scripts": [
-    "scripts/lib/lib.js"
+    "scripts/lib/jszip.min.js"
   ],
   "styles": [
     "styles/module.css"
