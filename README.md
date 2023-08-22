@@ -10,6 +10,18 @@
 
 Selecting the "Export to Markdown" option from the Journal Sidebar generates a ZIP file containing the selected journal/folder tree.
 
+It is possible to export:
+
+- one individual journal
+- a folder of journals
+- the entire sidebar of journals
+
+The contents of the downloaded ZIP can then be exported into your Obsidian Vault.
+
+All created links assume that the ZIP is extracted into the root folder of the Vault.
+
 ## Libraries
 
-This module uses the JSZip library (https://stuk.github.io/jszip)
+- [JSZip](https://stuk.github.io/jszip)
+- [turndown](https://www.npmjs.com/package/turndown) (for HTML to Markdown conversion) 
+- [turndown-plugin-gfm](https://www.npmjs.com/package/turndown-plugin-gfm)  (to convert HTML tables to GFM format) 

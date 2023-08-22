@@ -27,7 +27,9 @@
     "scripts/export-markdown.js"
   ],
   "scripts": [
-    "scripts/lib/jszip.min.js"
+    "scripts/lib/jszip.min.js",
+    "scripts/lib/turndown.js",
+    "scripts/lib/turndown-plugin-gfm.js"
   ],
   "styles": [
     "styles/module.css"
@@ -43,11 +45,5 @@
   "manifest": "#{MANIFEST}#",
   "download": "#{DOWNLOAD}#",
   "license": "LICENSE",
-  "readme": "README.md",
-  "media": [
-    {
-      "type": "icon",
-      "url": "https://avatars2.githubusercontent.com/u/71292812?s=400&u=ccdb4eeb7abf551ca8f314e5a9bfd0479a4d3d41&v=4"
-    }
-  ]
+  "readme": "README.md"
 }
