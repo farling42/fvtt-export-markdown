@@ -20,6 +20,11 @@ The contents of the downloaded ZIP can then be exported into your Obsidian Vault
 
 All created links assume that the ZIP is extracted into the root folder of the Vault.
 
+## Known Limitations
+
+- Images are not yet exported as part of the ZIP.
+- Tables might not get converted properly.
+
 ## Libraries
 
 - [JSZip](https://stuk.github.io/jszip)
