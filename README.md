@@ -6,7 +6,7 @@
 ![Latest Release Download Count](https://img.shields.io/github/downloads/farling42/fvtt-export-markdown/latest/module.zip)
 ![Forge installs](https://img.shields.io/badge/dynamic/json?label=Forge%20Installs&query=package.installs&suffix=%25&url=https%3A%2F%2Fforge-vtt.com%2Fapi%2Fbazaar%2Fpackage%2Ffvtt-export-markdown)
 
-# Export to Markdown
+# Markdown Exporter
 
 Selecting the "Export to Markdown" option from the Journal Sidebar generates a ZIP file containing the selected journal/folder tree.
 
@@ -20,18 +20,17 @@ The contents of the downloaded ZIP can then be exported into your Obsidian Vault
 
 All created links assume that the ZIP is extracted into the root folder of the Vault.
 
-## Known Limitations
-
-- Images are not yet exported as part of the ZIP.
-- Tables might not get converted properly.
-
 ## Installation
 
-Eventually it will be available on the Foundry packages database.
+The module can be installed directly from your Foundry server's module management page.
 
-In the meantime, install manually using the link:
+Alternatively, you can install manually using the link:
 
 https://github.com/farling42/fvtt-export-markdown/releases/latest/download/module.json
+
+## Dependencies
+
+This library requires the libWrapper module in order to work properly.
 
 ## Libraries
 
