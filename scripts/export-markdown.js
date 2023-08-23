@@ -169,7 +169,8 @@ function oneJournal(zip, journal) {
                 }
                 break;
             case "image": case "pdf": case "video":
-                if (page.src) markdown = `![](${page.src})`;
+                if (page.src) markdown = fileconvert(`![](${page.src})`, page.src);
+                if (page.image?.caption) markdown += `\n\n${page.image.caption}`;
                 break;
         }
         if (markdown) {
