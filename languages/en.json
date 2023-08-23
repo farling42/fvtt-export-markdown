@@ -1,3 +1,6 @@
 {
-    "export-markdown.exportToMarkdown": "Export to Markdown"
+    "export-markdown": {
+        "exportToMarkdown": "Export to Markdown",
+        "ProgressNotification": "Generating Markdown ZIP file"
+    }
 }

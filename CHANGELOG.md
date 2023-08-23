@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## 0.2.2
+
+- Produce INFO banner to indicate that the export is occurring.
+
 ## 0.2.1
 
 - Prevent a blocking error if a referenced image is not found by fetch()

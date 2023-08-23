@@ -32,7 +32,7 @@ function saveDataToFile(blob, filename) {
 
     // Dispatch a click event to the element
     a.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, view: window }));
-    setTimeout(() => window.URL.revokeObjectURL(a.href), 100);
+    return new Promise(resolve => setTimeout(() => { window.URL.revokeObjectURL(a.href); resolve()}, 100));
 }
 
 function folderpath(journal) {
@@ -194,7 +194,11 @@ function oneFolder(zip, folder) {
     }
 }
 
-export function exportMarkdown(from, zipname) {
+export async function exportMarkdown(from, zipname) {
+    let noteid = ui.notifications.info(`${MODULE_NAME}.ProgressNotification`, {permanent: true, localize: true})
+    // Wait for the notification to get drawn
+    await new Promise(resolve => setTimeout(resolve, 100));
+
     zip = new JSZip();
 
     if (from instanceof JournalEntry) {
@@ -213,11 +217,14 @@ export function exportMarkdown(from, zipname) {
         }
     }
     else {
-        ui.notifications.err('Invalid object passed to exportMarkdown')
+        ui.notifications.error('Invalid object passed to exportMarkdown')
+        ui.notifications.remove(noteid);
         return;
     }
 
-    zip.generateAsync({ type: "blob" }).then((blob) => saveDataToFile(blob, `${validFilename(zipname)}.zip`));
+    let blob = await zip.generateAsync({ type: "blob" });
+    await saveDataToFile(blob, `${validFilename(zipname)}.zip`);
+    ui.notifications.remove(noteid);
 }
 
 Hooks.once('init', async () => {
