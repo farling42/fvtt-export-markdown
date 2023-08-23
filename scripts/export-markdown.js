@@ -5,6 +5,10 @@ import { turndownPluginGfm } from "./lib/turndown-plugin-gfm.js";
 const MODULE_NAME = "export-markdown";
 const FRONTMATTER = "---\n";
 
+const destForImages = "zz_asset-files/";
+
+let zip;
+
 /**
  * 
  * @param {Object} from Either a folder or a Journal, selected from the sidebar
@@ -54,11 +58,20 @@ function fileconvert(str, filename) {
         return str;
     }
     filename = decodeURIComponent(filename);
-    // filename = "worlds/cthulhu/realmworksimport/sdfdsfrs.png"
-    // basename = ".../worlds/cthulhu/data/journal.db"
     let basefilename = filename.slice(filename.lastIndexOf('/') + 1);
-    //let filecontents = readfile(foundryuserdata + filename);
-    //zip.file(destForImages + '/' + basefilename, filecontents, {binary:false});
+
+    zip.file(destForImages + basefilename, 
+        // Provide a Promise which ZIP can use
+        fetch(filename).then(resp => {
+            if (resp.status !== 200) {
+                console.error(`Failed to fetch image from '${filename}'`)
+                return Blob();
+            } else {
+                console.debug(`Adding image file ${basefilename}`);
+                return resp.blob();
+            }
+        }).catch(e => { console.log(`Failed to fetch image from '${filename}'`, e)}),
+    {binary:true});
     return `![[${basefilename}]]`;
 }
 
@@ -178,7 +191,7 @@ function oneFolder(zip, folder) {
 }
 
 export function exportMarkdown(from, zipname) {
-    const zip = new JSZip();
+    zip = new JSZip();
 
     if (from instanceof JournalEntry) {
         console.debug(`Processing one JournalEntry`)
