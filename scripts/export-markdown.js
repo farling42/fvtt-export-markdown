@@ -61,16 +61,19 @@ function fileconvert(str, filename) {
     let basefilename = filename.slice(filename.lastIndexOf('/') + 1);
 
     zip.file(destForImages + basefilename, 
-        // Provide a Promise which ZIP can use
+        // Provide a Promise which JSZIP will wait for before saving the file
         fetch(filename).then(resp => {
             if (resp.status !== 200) {
-                console.error(`Failed to fetch image from '${filename}'`)
-                return Blob();
+                console.error(`Failed to fetch image from '${filename}' (response ${resp.status})`)
+                return new Blob();
             } else {
                 console.debug(`Adding image file ${basefilename}`);
                 return resp.blob();
             }
-        }).catch(e => { console.log(`Failed to fetch image from '${filename}'`, e)}),
+        }).catch(e => { 
+            console.log(e);
+            return new Blob();
+        }),
     {binary:true});
     return `![[${basefilename}]]`;
 }

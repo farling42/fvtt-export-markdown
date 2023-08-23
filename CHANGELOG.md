@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## 0.2.1
+
+- Prevent a blocking error if a referenced image is not found by fetch()
+
 ## 0.2.0
 
 - Fetch files linked from journal entries which are stored within the Foundry data area (external URLs will remain as external URLs).
