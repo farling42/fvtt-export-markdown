@@ -78,6 +78,17 @@ function fileconvert(str, filename) {
     return `![[${basefilename}]]`;
 }
 
+function notefilename(doc) {
+    let docname;
+    if (doc instanceof JournalEntry) {
+        docname = doc.name;
+    } else if (doc instanceof JournalEntryPage) {
+        docname = (doc.parent.pages.size === 1) ? doc.parent.name : docname = doc.name;
+    } else 
+        docname = "";
+    return validFilename(docname);
+}
+
 let turndownService, gfm;
 
 function convertHtml(doc, html) {
@@ -96,16 +107,24 @@ function convertHtml(doc, html) {
 
     function convertLink(str, id, section, label, offset, string, groups) {
         if (id.startsWith("Compendium.")) return str;
-        let linkeddoc = str.startsWith('@UUID') ? fromUuidSync(id, { relative: doc }) : game.journal.get(id);
-        if (!(linkeddoc instanceof JournalEntry || linkeddoc instanceof JournalEntryPage)) return str;
-        let journal = linkeddoc.parent || linkeddoc;
+        let linkdoc = str.startsWith('@UUID') ? fromUuidSync(id, { relative: doc }) : game.journal.get(id);
 
-        let filename = id.startsWith('.') ? validFilename(linkeddoc.name) :
-            (journal.pages?.size > 1) ? (folderpath(journal) + "/" + validFilename(linkeddoc.name)) : folderpath(journal);
-        if (label == filename)
-            return `[[${filename}]]`;
-        else
-            return `[[${filename}|${label}]]`;
+        // A journal with only one page is put into a Note using the name of the Journal, not the only Page.
+        let filename = notefilename(linkdoc);
+
+        let result = filename;
+        // Not a link to a Journal or JournalPage, so just put in the link directly
+        if (result.length === 0) return str;
+
+        // FOUNDRY uses slugified section names, rather than the actual text of the HTML header.
+        // We need to add an Obsidian block note marker to all section headers to contain that slug.
+        if (section && linkdoc instanceof JournalEntryPage) {
+            const toc = linkdoc.toc;
+            if (toc[section]) 
+                result += `#${toc[section].text}`;
+        }
+        if (label !== filename) result += `|${label}`;
+        return `[[${result}]]`;
     }
 
     // Convert all the links
@@ -148,18 +167,17 @@ function oneJournal(zip, journal) {
     if (!onepage) {
         // TOC page 
         // This is a Folder note, so goes INSIDE the folder for this journal entry
-        const notename = journal.name;
+        const tocname = journal.name;
         let markdown = "## Table of Contents\n";
         for (let page of journal.pages) {
             markdown += `\n- [[${validFilename(page.name)}]]`;
         }
-        markdown = FRONTMATTER + `title: "${notename}"\n` + `aliases: "${notename}"\n` + `foundryId: ${journal.uuid}\n` + FRONTMATTER + markdown;
-        zip.file(`${dirname}/${validFilename(notename)}.md`, markdown, { binary: false });
+        markdown = FRONTMATTER + `title: "${tocname}"\n` + `aliases: "${tocname}"\n` + `foundryId: ${journal.uuid}\n` + FRONTMATTER + markdown;
+        zip.file(`${dirname}/${validFilename(tocname)}.md`, markdown, { binary: false });
     }
 
     for (const page of journal.pages) {
         let markdown;
-        const notename = onepage ? journal.name : page.name;
         switch (page.type) {
             case "text":
                 switch (page.text.format) {
@@ -178,7 +196,7 @@ function oneJournal(zip, journal) {
         }
         if (markdown) {
             markdown = FRONTMATTER + `title: "${page.name}"\n` + `aliases: "${journal.name}"\n` + `foundryId: ${page.uuid}\n` + FRONTMATTER + (markdown || "");
-            zip.file(`${dirname}/${validFilename(notename)}.md`, markdown, { binary: false });
+            zip.file(`${dirname}/${notefilename(page)}.md`, markdown, { binary: false });
         }
     }
 }

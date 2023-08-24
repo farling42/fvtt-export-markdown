@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## 0.3.0
+
+- Links no longer contain the path of folders to the relevant Note.
+- Links to Notes now include the section header, if provided.
+
 ## 0.2.2
 
 - Produce INFO banner to indicate that the export is occurring.
