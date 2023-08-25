@@ -3,7 +3,7 @@
 Add "icon:" into frontmatter for document type:
 
 - JournalEntry (book-open)
-- JournalEntryPage (layers)
+- JournalEntryPage (sticky-note)
 - Actor (user)
 - Item (luggage)
 - Folder (folder)
@@ -19,3 +19,26 @@ The following are less likely to be useful:
 - Combat (swords)
 - Macro ()
 - User ()
+
+## ROLL TABLES
+
+Convert roll table into a MARKDOWN table:
+
+- left column = number range
+- right column = text or link
+
+## ACTORS and ITEMS
+
+A page showing the `JSON.stringify(json, null, 2)` (see exportToJSON)
+
+## SCENE
+
+Convert to whatever Obsidian has as a map plugin
+
+## PLAYLIST
+
+Simply store the file as a binary file
+
+## CHAT LIST
+
+One note per entry?
