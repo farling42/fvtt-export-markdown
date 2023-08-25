@@ -109,16 +109,22 @@ function convertHtml(doc, html) {
         console.warn(`Error: failed to decode html:`, html)
     }
 
-    function convertLink(str, id, section, label, offset, string, groups) {
-        if (id.startsWith("Compendium.")) return str;
-        let linkdoc = str.startsWith('@UUID') ? fromUuidSync(id, { relative: doc }) : game.journal.get(id);
+    function convertLink(str, type, id, section, label, offset, string, groups) {
+
+        function dummyLink() {
+            // Make sure that "|" in the ID don't start the label early (e.g. @PDF[whatever|page=name]{label})
+            return `[[${type}.${id.replaceAll('|','¬')}|${label}]]`
+        }
+        if (id.startsWith("Compendium.") || type === "Compendium") return dummyLink();
+
+        let linkdoc = (type === 'UUID') ? fromUuidSync(id, { relative: doc }) : game.journal.get(id);
 
         // A journal with only one page is put into a Note using the name of the Journal, not the only Page.
         let filename = notefilename(linkdoc);
 
         let result = filename;
         // Not a link to a Journal or JournalPage, so just put in the link directly
-        if (result.length === 0) return str;
+        if (result.length === 0) return dummyLink();
 
         // FOUNDRY uses slugified section names, rather than the actual text of the HTML header.
         // We need to add an Obsidian block note marker to all section headers to contain that slug.
@@ -144,16 +150,26 @@ function convertHtml(doc, html) {
     // Converted text has the first [ escaped
     if (markdown.includes('@UUID\\[')) {
         // The square brackets in @JournalEntry will already have been escaped!
-        const pattern = /@UUID\\\[([^#\\]+)(?:#([^\\]+))?\\\](?:{([^}]+)})?/g;
+        const pattern = /@(UUID)\\\[([^#\\]+)(?:#([^\\]+))?\\\](?:{([^}]+)})?/g;
         //cst pattern = /@UUID\\\[([a-zA-Z]*)\.([^\]]*)\\\]{([^\}]*)}/g;
         markdown = markdown.replaceAll(pattern, convertLink);
     }
     // Converted markdown does NOT include the escape flag
     if (markdown.includes('@UUID[')) {
-        const pattern = new RegExp(`@UUID\\[([^#\\]]+)(?:#([^\\]]+))?](?:{([^}]+)})?`, "g");
+        const pattern = new RegExp(`@(UUID)\\[([^#\\]]+)(?:#([^\\]]+))?](?:{([^}]+)})?`, "g");
         //const pattern = /@UUID\[([a-zA-Z]*)\.([^\]]*)\]{([^\}]*)}/g;
         markdown = markdown.replaceAll(pattern, convertLink);
     }
+    // Convert other types of links into "undocumented" links, rather than displaying the full raw.
+    if (markdown.match(/@[A-Za-z]+\\\[/)) {
+        const pattern = /@([A-Za-z]+)\\\[([^#\\]+)(?:#([^\\]+))?\\\](?:{([^}]+)})?/g;
+        markdown = markdown.replaceAll(pattern, convertLink);
+    }
+    if (markdown.match(/@[A-Za-z]+\[/)) {
+        const pattern = new RegExp(`@([A-Za-z]+)\\[([^#\\]]+)(?:#([^\\]]+))?](?:{([^}]+)})?`, "g");
+        markdown = markdown.replaceAll(pattern, convertLink);
+    }
+    
     // Replace file references
     if (markdown.includes('![](')) {
         //console.log(`File ${item.filename} has images`);

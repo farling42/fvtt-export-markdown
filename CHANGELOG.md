@@ -3,6 +3,7 @@
 ## 0.4.0
 
 - Allow Journal Entries from Compendiums to be exported (Choosing a folder in the compendium sidebar will output all the contained Journal (only) entries into a single zip file).
+- Convert non-journal links to Obsidian format, which will link to non-existent pages (any '|' in the link id are replaced by '¬').
 
 ## 0.3.0
 
