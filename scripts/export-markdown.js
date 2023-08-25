@@ -113,7 +113,7 @@ function convertHtml(doc, html) {
 
         function dummyLink() {
             // Make sure that "|" in the ID don't start the label early (e.g. @PDF[whatever|page=name]{label})
-            return `[[${type}.${id.replaceAll('|','¬')}|${label}]]`
+            return `[[${type}/${id.replaceAll('.','/').replaceAll('|','¬')}|${label}]]`
         }
         if (id.startsWith("Compendium.") || type === "Compendium") return dummyLink();
 

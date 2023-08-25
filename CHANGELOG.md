@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## 0.4.1
+
+- Default for non-journal links will replace "." with "/" so that creating notes from those links will not fill your root folder with loads of folders.
+
 ## 0.4.0
 
 - Allow Journal Entries from Compendiums to be exported (Choosing a folder in the compendium sidebar will output all the contained Journal (only) entries into a single zip file).
