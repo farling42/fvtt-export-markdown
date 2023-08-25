@@ -5,7 +5,7 @@ import { turndownPluginGfm } from "./lib/turndown-plugin-gfm.js";
 const MODULE_NAME = "export-markdown";
 const FRONTMATTER = "---\n";
 
-const destForImages = "zz_asset-files/";
+const destForImages = "zz_asset-files";
 
 let zip;
 
@@ -17,6 +17,10 @@ let zip;
 function validFilename(name) {
     const regexp = /[<>:"/\\|?*]/g;
     return name.replaceAll(regexp, '_');
+}
+
+function formpath(dir,file) {
+    return dir ? (dir + "/" + file) : file;
 }
 
 /**
@@ -40,7 +44,7 @@ function folderpath(journal) {
     let folder = journal.folder;
     while (folder) {
         const foldername = validFilename(folder.name);
-        result = result ? (foldername + "/" + result) : foldername;
+        result = result ? formpath(foldername, result) : foldername;
         folder = folder.folder;
     }
     return result;
@@ -58,9 +62,9 @@ function fileconvert(str, filename) {
         return str;
     }
     filename = decodeURIComponent(filename);
-    let basefilename = filename.slice(filename.lastIndexOf('/') + 1);
+    let basefilename = filename.slice(filename.lastIndexOf("/") + 1);
 
-    zip.file(destForImages + basefilename, 
+    zip.file(formpath(destForImages, basefilename), 
         // Provide a Promise which JSZIP will wait for before saving the file
         fetch(filename).then(resp => {
             if (resp.status !== 200) {
@@ -161,9 +165,10 @@ function convertHtml(doc, html) {
 }
 
 function oneJournal(zip, journal) {
-    let topfolder = validFilename(journal.name);
+    let jnlname = validFilename(journal.name);
     let onepage = journal.pages.size === 1;
-    const dirname = onepage ? folderpath(journal) : (folderpath(journal) + "/" + validFilename(journal.name));
+    const path = folderpath(journal);
+    const dirname = onepage ? path : formpath(path, jnlname);
     if (!onepage) {
         // TOC page 
         // This is a Folder note, so goes INSIDE the folder for this journal entry
@@ -173,7 +178,7 @@ function oneJournal(zip, journal) {
             markdown += `\n- [[${validFilename(page.name)}]]`;
         }
         markdown = FRONTMATTER + `title: "${tocname}"\n` + `aliases: "${tocname}"\n` + `foundryId: ${journal.uuid}\n` + FRONTMATTER + markdown;
-        zip.file(`${dirname}/${validFilename(tocname)}.md`, markdown, { binary: false });
+        zip.file(`${formpath(dirname, validFilename(tocname))}.md`, markdown, { binary: false });
     }
 
     for (const page of journal.pages) {
@@ -196,7 +201,7 @@ function oneJournal(zip, journal) {
         }
         if (markdown) {
             markdown = FRONTMATTER + `title: "${page.name}"\n` + `aliases: "${journal.name}"\n` + `foundryId: ${page.uuid}\n` + FRONTMATTER + (markdown || "");
-            zip.file(`${dirname}/${notefilename(page)}.md`, markdown, { binary: false });
+            zip.file(`${formpath(dirname, notefilename(page))}.md`, markdown, { binary: false });
         }
     }
 }
@@ -209,6 +214,21 @@ function oneFolder(zip, folder) {
     }
     for (const childfolder of folder.getSubfolders(/*recursive*/false)) {
         oneFolder(subzip, childfolder);
+    }
+}
+
+async function onePack(zip, pack) {
+    const subzip = zip.folder(validFilename(pack.title));
+    const documents = await pack.getDocuments();
+    for (const journal of documents) {
+        oneJournal(subzip, journal);
+    }
+}
+
+async function onePackFolder(zip, folder) {
+    const subzip = zip.folder(validFilename(folder.name));
+    for (const pack of game.packs.filter(pack => pack.folder === folder)) {
+        if (pack.documentName == 'JournalEntry') await onePack(subzip, pack)
     }
 }
 
@@ -225,7 +245,10 @@ export async function exportMarkdown(from, zipname) {
     } else if (from instanceof Folder) {
         console.debug(`Processing one Folder`)
         // Do we put in the full hierarchy that might be ABOVE the indicated folder
-        oneFolder(zip, from);
+        if (from.type === "Compendium")
+            await onePackFolder(zip, from);
+        else
+            oneFolder(zip, from);
     }
     else if (from instanceof JournalDirectory) {
         console.debug(`Processing the entire JournalDirectory`)
@@ -233,9 +256,10 @@ export async function exportMarkdown(from, zipname) {
         for (const journal of from.collection) {
             oneJournal(zip, journal);
         }
-    }
-    else {
-        ui.notifications.error('Invalid object passed to exportMarkdown')
+    } else if (from instanceof CompendiumCollection) {
+        await onePack(zip, from);
+    } else {
+        ui.notifications.error(`Invalid object '${from.applicationClass.name}' passed to exportMarkdown`)
         ui.notifications.remove(noteid);
         return;
     }
@@ -264,6 +288,19 @@ Hooks.once('init', async () => {
     }
     libWrapper.register(MODULE_NAME, "JournalDirectory.prototype._getEntryContextOptions", addEntryMenu, libWrapper.WRAPPER);
 
+    function addCompendiumEntryMenu(wrapped, ...args) {
+        return wrapped(...args).concat({
+            name: `${MODULE_NAME}.exportToMarkdown`,
+            icon: '<i class="fas fa-file-zip"></i>',
+            condition: li => game.user.isGM && game.packs.get(li.data("pack"))?.documentName === "JournalEntry",
+            callback: async li => {
+                const pack = game.packs.get(li.data("pack"));
+                exportMarkdown(pack, pack.title)
+            },
+        });
+    }
+    libWrapper.register(MODULE_NAME, "CompendiumDirectory.prototype._getEntryContextOptions", addCompendiumEntryMenu, libWrapper.WRAPPER);
+
     // FOLDER context menu: needs 
     function addFolderMenu(wrapped, ...args) {
         return wrapped(...args).concat({
@@ -279,6 +316,7 @@ Hooks.once('init', async () => {
         });
     }
     libWrapper.register(MODULE_NAME, "JournalDirectory.prototype._getFolderContextOptions", addFolderMenu, libWrapper.WRAPPER);
+    libWrapper.register(MODULE_NAME, "CompendiumDirectory.prototype._getFolderContextOptions", addFolderMenu, libWrapper.WRAPPER);
 })
 
 Hooks.on("renderSidebarTab", async (app, html) => {

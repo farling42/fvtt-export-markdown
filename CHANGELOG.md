@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## 0.4.0
+
+- Allow Journal Entries from Compendiums to be exported (Choosing a folder in the compendium sidebar will output all the contained Journal (only) entries into a single zip file).
+
 ## 0.3.0
 
 - Links no longer contain the path of folders to the relevant Note.
