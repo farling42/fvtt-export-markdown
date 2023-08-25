@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## 0.5.0
+
+- Export Roll Tables
+- Ensure folder names in the ZIP file match the selected item(s) for export.
+- Add a suitable icon to the frontmatter of each note (for use with Obsidian's Icon Shortcodes plugin).
+
 ## 0.4.1
 
 - Default for non-journal links will replace "." with "/" so that creating notes from those links will not fill your root folder with loads of folders.

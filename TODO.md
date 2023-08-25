@@ -33,7 +33,10 @@ A page showing the `JSON.stringify(json, null, 2)` (see exportToJSON)
 
 ## SCENE
 
-Convert to whatever Obsidian has as a map plugin
+Convert to whatever Obsidian has as a map plugin:
+
+- scene background
+- scene notes
 
 ## PLAYLIST
 
