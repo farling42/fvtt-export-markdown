@@ -9,6 +9,29 @@ const destForImages = "zz_asset-files";
 
 let zip;
 
+class DOCUMENT_ICON {
+    // indexed by CONST.DOCUMENT_TYPES
+    static table = {
+        Actor: "user",
+        Cards: "space",
+        ChatMessage: "messages-square",
+        Combat: "swords",
+        Item: "luggage",
+        Folder: "folder",
+        JournalEntry: "book-open",
+        JournalEntryPage: "sticky-note",   // my own addition
+        //Macro: "",
+        Playlist: "music",
+        RollTable: "list",
+        Scene: "map"
+    };
+
+    //User: ""
+    static lookup(document) {
+        return DOCUMENT_ICON.table?.[document.documentName] || "file-question";
+    }
+}
+
 /**
  * 
  * @param {Object} from Either a folder or a Journal, selected from the sidebar
@@ -180,6 +203,15 @@ function convertHtml(doc, html) {
     return markdown;
 }
 
+function frontmatter(doc) {
+    return FRONTMATTER + 
+        `title: "${doc.name}"\n` + 
+        `icon: ${DOCUMENT_ICON.lookup(doc)}\n` +
+        `aliases: "${doc.name}"\n` + 
+        `foundryId: ${doc.uuid}\n` + 
+        FRONTMATTER;
+}
+
 function oneJournal(zip, journal) {
     let jnlname = validFilename(journal.name);
     let onepage = journal.pages.size === 1;
@@ -188,13 +220,11 @@ function oneJournal(zip, journal) {
     if (!onepage) {
         // TOC page 
         // This is a Folder note, so goes INSIDE the folder for this journal entry
-        const tocname = journal.name;
-        let markdown = "## Table of Contents\n";
+        let markdown = "## Table of Contents\n" + frontmatter(journal);
         for (let page of journal.pages) {
             markdown += `\n- [[${validFilename(page.name)}]]`;
         }
-        markdown = FRONTMATTER + `title: "${tocname}"\n` + `aliases: "${tocname}"\n` + `foundryId: ${journal.uuid}\n` + FRONTMATTER + markdown;
-        zip.file(`${formpath(dirname, validFilename(tocname))}.md`, markdown, { binary: false });
+        zip.file(`${formpath(dirname, validFilename(journal.name))}.md`, markdown, { binary: false });
     }
 
     for (const page of journal.pages) {
@@ -216,7 +246,7 @@ function oneJournal(zip, journal) {
                 break;
         }
         if (markdown) {
-            markdown = FRONTMATTER + `title: "${page.name}"\n` + `aliases: "${journal.name}"\n` + `foundryId: ${page.uuid}\n` + FRONTMATTER + (markdown || "");
+            markdown = frontmatter(page) + markdown;
             zip.file(`${formpath(dirname, notefilename(page))}.md`, markdown, { binary: false });
         }
     }
