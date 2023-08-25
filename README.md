@@ -15,10 +15,12 @@ It is possible to export:
 - one individual journal
 - a folder of journals
 - the entire sidebar of journals
+- the contents of a Journal compendium
+- the contents of Journal compendiums in a compendium folder
 
 The contents of the downloaded ZIP can then be exported into your Obsidian Vault.
 
-All created links assume that the ZIP is extracted into the root folder of the Vault.
+Links to non-journal entries will be converted to Markdown-format links (which will obviously point to non-existent pages).
 
 ## Installation
 
