@@ -23,6 +23,19 @@ Simply store the file as a binary file
 
 One note per entry?
 
+## Encounter Statblocks
+
+```code
+  ```encounter
+    name: A01 Damp Entrance
+    creatures:
+    - 3: Mitflit
+  ```
+  ```statblock
+    monster: mitflit
+  ```
+```
+
 ## BUGS
 
 - Links inside tables created by HTML->markdown converter don't have their "|" escaped to be "\|", so the table isn't formatted properly.
