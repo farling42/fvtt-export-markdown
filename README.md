@@ -37,5 +37,6 @@ This library requires the libWrapper module in order to work properly.
 ## Libraries
 
 - [JSZip](https://stuk.github.io/jszip)
+- [JSYAML](https://github.com/nodeca/js-yaml) (for Object to YAML conversion)
 - [turndown](https://www.npmjs.com/package/turndown) (for HTML to Markdown conversion) 
 - [turndown-plugin-gfm](https://www.npmjs.com/package/turndown-plugin-gfm)  (to convert HTML tables to GFM format) 

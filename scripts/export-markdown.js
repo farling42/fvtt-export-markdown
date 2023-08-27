@@ -1,6 +1,7 @@
 import "./lib/jszip.min.js";
 import { TurndownService } from "./lib/turndown.js";
 import { TurndownPluginGfmService } from "./lib/turndown-plugin-gfm.js";
+import "./lib/js-yaml.min.js";
 
 const MODULE_NAME = "export-markdown";
 const FRONTMATTER = "---\n";
@@ -8,6 +9,8 @@ const FRONTMATTER = "---\n";
 const destForImages = "zz_asset-files";
 
 let zip;
+
+const OPTION_DUMP = "dataType";
 
 class DOCUMENT_ICON {
     // indexed by CONST.DOCUMENT_TYPES
@@ -292,11 +295,19 @@ function documentToJSON(path, doc) {
         if (text) markdown += convertHtml(doc, text) + EOL + EOL;
     }
 
+    let datastring;
+    let dumpoption = game.settings.get(MODULE_NAME, OPTION_DUMP);
+    if (dumpoption === "YAML")
+        datastring = jsyaml.dump(data);
+    else if (dumpoption === "JSON")
+        datastring = JSON.stringify(data, null, 2) + EOL;
+    else
+        console.error(`Unknown option for dumping objects: ${dumpoption}`)
     // TODO: maybe extract Items as separate notes?
 
     markdown +=
         MARKER + doc.documentName + EOL + 
-        JSON.stringify(doc, null, 2) + EOL + 
+        datastring +
         MARKER + EOL;
 
     zip.folder(path).file(`${notefilename(doc)}.md`, markdown, { binary: false });
@@ -443,4 +454,24 @@ Hooks.on("renderSidebarTab", async (app, html) => {
         let anchor = html.find(".directory-footer");
         anchor.append(button);
     }
+})
+
+
+/*
+ * MODULE OPTIONS
+ */
+
+Hooks.once('init', () => {
+    game.settings.register(MODULE_NAME, OPTION_DUMP, {
+		name: "Format for non-decoded data",
+		hint: "For document types not otherwise decoded, use this format for the data dump.",
+		scope: "world",
+		type:  String,
+		choices: { 
+            "YAML": "YAML",
+            "JSON": "JSON"
+        },
+		default: "YAML",
+		config: true,
+	});
 })
