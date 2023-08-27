@@ -293,7 +293,7 @@ function documentToJSON(path, doc) {
     }
 
     // TODO: maybe extract Items as separate notes?
-    
+
     markdown +=
         MARKER + doc.documentName + EOL + 
         JSON.stringify(doc, null, 2) + EOL + 
@@ -374,6 +374,11 @@ export async function exportMarkdown(from, zipname) {
     ui.notifications.remove(noteid);
 }
 
+function zipfilename(name, type) {
+    if (!type) return name;
+    return `${type}-${name}`;
+}
+
 Hooks.once('init', async () => {
     // If not done during "init" hook, then the journal entry context menu doesn't work
 
@@ -387,7 +392,7 @@ Hooks.once('init', async () => {
                 const li = header.closest(".directory-item");
                 const entry = this.collection.get(li.data("entryId"));
                 if (!entry) return;
-                exportMarkdown(entry, entry.name)
+                exportMarkdown(entry, zipfilename(entry.name, entry.constructor.name));
             },
         });
     }
@@ -400,7 +405,7 @@ Hooks.once('init', async () => {
             condition: li => game.user.isGM,
             callback: async li => {
                 const pack = game.packs.get(li.data("pack"));
-                exportMarkdown(pack, pack.title)
+                exportMarkdown(pack, zipfilename(pack.title, pack.metadata.type));
             },
         });
     }
@@ -416,7 +421,7 @@ Hooks.once('init', async () => {
                 const li = header.closest(".directory-item")[0];
                 const folder = await fromUuid(li.dataset.uuid);
                 if (!folder) return;
-                exportMarkdown(folder, folder.name)
+                exportMarkdown(folder, zipfilename(folder.name, folder.type));
             },
         });
     }
@@ -432,7 +437,7 @@ Hooks.on("renderSidebarTab", async (app, html) => {
         const label = game.i18n.localize(`${MODULE_NAME}.exportToMarkdown`);
         let button = $(`<button class='import-cd'><i class='fas fa-file-zip'></i>${label}</button>`)
         button.click(function () {
-            exportMarkdown(app, app.constructor.name);
+            exportMarkdown(app, zipfilename(app.constructor.name));
         });
 
         let anchor = html.find(".directory-footer");
