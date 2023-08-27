@@ -283,9 +283,9 @@ function documentToJSON(path, doc) {
 
     // Some common locations for descriptions
     const DESCRIPTIONS = [
-        "system.details.biography.value",  // DND5e Actor
-        "system.description.value",        // DND5E Item
-        "system.details.publicNotes"       // PF2e  Actor
+        "system.details.biography.value",  // Actor: DND5E
+        "system.details.publicNotes",       // Actor: PF2E
+        "system.description.value",        // Item: DND5E and PF2E
     ]
     for (const field of DESCRIPTIONS) {
         let text = foundry.utils.getProperty(doc, field);

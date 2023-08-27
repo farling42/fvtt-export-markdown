@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## 0.7.0
+
+- Include document type in the ZIP filename.
+- Export other document types as JSON in an annotation block (includes limited support for fetching image and description from the correct place in known game-systems: currently DND5E and PF2E).
+
 ## 0.6.0
 
 - Make a better attempt at converting tables from HTML to markdown (which involved switching to @guyplusplus updated version of turndown-plugin-gfm)
