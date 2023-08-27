@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## 0.8.0
+
+- Convert Scenes into an annotation block that can be used by Obsidian's [leaflet](https://github.com/javalent/obsidian-leaflet) plugin.
+
 ## 0.7.0
 
 - Include document type in the ZIP filename.

@@ -5,6 +5,8 @@ import "./lib/js-yaml.min.js";
 
 const MODULE_NAME = "export-markdown";
 const FRONTMATTER = "---\n";
+const EOL = "\n";
+const MARKER = "```";
 
 const destForImages = "zz_asset-files";
 
@@ -272,10 +274,59 @@ function oneRollTable(path, table) {
     zip.folder(path).file(`${notefilename(table)}.md`, markdown, { binary: false });
 }
 
+function oneScene(path, scene) {
+
+    const units_per_pixel = /*units*/ scene.grid.distance / /*pixels*/ scene.grid.size;
+
+    function coord(pixels) {
+        return pixels * units_per_pixel;
+    }
+
+    let markdown = frontmatter(scene);
+
+    if (scene.notes.size === 0) {
+        // No notes, so simply include the actual image
+        markdown += fileconvert(scene.background.src, scene.background.src) + EOL;
+        zip.folder(path).file(`${notefilename(scene)}.md`, markdown, { binary: false });
+    }
+
+    // scene.navName - maybe an alias in the frontmatter (if non-empty, and different from scene.name)
+    markdown += 
+        `\n${MARKER}leaflet\n` +
+        `id: ${scene.uuid}\n` +
+        `image: ${fileconvert(scene.background.src, scene.background.src).replace("!","")}\n` +
+        `height: 100%\n` +
+        `draw: false\n` +
+        `unit: ${scene.grid.units}\n` +
+        `showAllMarkers: true\n` +
+        `preserveAspect: true\n` +
+        `bounds: [[0, 0], [${coord(scene.dimensions.sceneRect.height)}, ${coord(scene.dimensions.sceneRect.width)}]]\n`;
+
+    // scene.dimensions.distance / distancePixels / height / maxR / ratio
+    // scene.dimensions.rect: (x, y, width, height, type:1)
+    // scene.dimensions.sceneHeight/sceneWidth/size/height/width
+    // scene.grid: { alpha: 0.2, color: "#000000", distance: 5, size: 150, type: 1, units: "ft"}
+    // scene.height/width
+
+    const sceneBottom = scene.dimensions.sceneRect.bottom;
+    const sceneLeft   = scene.dimensions.sceneRect.left;
+    for (const note of scene.notes) {
+        const linkdoc = note.page || note.entry;
+        const linkfile = linkdoc ? notefilename(linkdoc) : "Not Linked";
+
+        // invert Y coordinate, and remove the padding from the note's X,Y position
+        markdown += `marker: default, ${coord(sceneBottom - note.y)}, ${coord(note.x - sceneLeft)}, [[${linkfile}]], "${note.label}"\n`;
+            //`    icon: ${note.texture.src}` + EOL +
+    }
+    markdown += MARKER;
+
+    // scene.lights?
+
+    zip.folder(path).file(`${notefilename(scene)}.md`, markdown, { binary: false });
+}
+
 function documentToJSON(path, doc) {
     // see Foundry exportToJSON
-    const MARKER = "```";
-    const EOL = "\n";
 
     const data = doc.toCompendium(null);
     // Remove things the user is unlikely to need
@@ -318,6 +369,8 @@ function oneDocument(path, doc) {
         oneJournal(path, doc);
     else if (doc instanceof RollTable)
         oneRollTable(path, doc);
+    else if (doc instanceof Scene)
+        oneScene(path, doc);
     else
         documentToJSON(path, doc);
 }
