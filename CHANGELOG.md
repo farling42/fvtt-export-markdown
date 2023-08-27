@@ -3,6 +3,7 @@
 ## 0.8.0
 
 - Convert Scenes into an annotation block that can be used by Obsidian's [leaflet](https://github.com/javalent/obsidian-leaflet) plugin.
+- Create Notes for Playlists - one note per playlist, with a separate audio player for each track within the playlist.
 
 ## 0.7.0
 

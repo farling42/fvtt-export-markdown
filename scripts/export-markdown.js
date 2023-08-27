@@ -325,6 +325,38 @@ function oneScene(path, scene) {
     zip.folder(path).file(`${notefilename(scene)}.md`, markdown, { binary: false });
 }
 
+function onePlaylist(path, playlist) {
+    // playlist.description
+    // playlist.fade
+    // playlist.mode
+    // playlist.name
+    // playlist.seed
+    // playlist._playbackOrder (array, containing list of keys into playlist.sounds)
+    // playlist.sounds (collection of PlaylistSound)
+    //    - debounceVolume
+    //    - description
+    //    - fade
+    //    - name
+    //    - path (filename)
+    //    - pausedTime
+    //    - repeat (bool)
+    //    - volume
+
+    let markdown = frontmatter(playlist);
+
+    if (playlist.description) markdown += playlist.description + EOL + EOL;
+
+    for (const id of playlist._playbackOrder) {
+        const sound = playlist.sounds.get(id);
+        // HOW to encode volume of each track?
+        markdown += `#### ${sound.name}` + EOL;
+        if (sound.description) markdown += sound.description + EOL
+        markdown += fileconvert(sound.path, sound.path) + EOL;
+    }
+
+    zip.folder(path).file(`${notefilename(playlist)}.md`, markdown, { binary: false });
+}
+
 function documentToJSON(path, doc) {
     // see Foundry exportToJSON
 
@@ -371,6 +403,8 @@ function oneDocument(path, doc) {
         oneRollTable(path, doc);
     else if (doc instanceof Scene)
         oneScene(path, doc);
+    else if (doc instanceof Playlist)
+        onePlaylist(path, doc);
     else
         documentToJSON(path, doc);
 }
