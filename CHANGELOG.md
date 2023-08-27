@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## 0.6.0
+
+- Make a better attempt at converting tables from HTML to markdown (which involved switching to @guyplusplus updated version of turndown-plugin-gfm)
+
 ## 0.5.0
 
 - Export Roll Tables

@@ -1,6 +1,6 @@
 import "./lib/jszip.min.js";
 import { TurndownService } from "./lib/turndown.js";
-import { turndownPluginGfm } from "./lib/turndown-plugin-gfm.js";
+import { TurndownPluginGfmService } from "./lib/turndown-plugin-gfm.js";
 
 const MODULE_NAME = "export-markdown";
 const FRONTMATTER = "---\n";
@@ -133,16 +133,17 @@ function convertLinks(markdown, doc) {
     
         let linkdoc = (type === 'UUID') ? fromUuidSync(id, { relative: doc }) : game.journal.get(id);
         if (!linkdoc) return dummyLink();
+        // Some types not supported yet
+        if (!['JournalEntry','JournalEntryPage','RollTable'].includes(linkdoc?.documentName)) 
+            return dummyLink();
     
         // A journal with only one page is put into a Note using the name of the Journal, not the only Page.
         let filename = notefilename(linkdoc);
-    
-        let result = filename;
-        // Not a link to a Journal or JournalPage, so just put in the link directly
-        if (result.length === 0) return dummyLink();
+        if (filename.length === 0) return dummyLink();
     
         // FOUNDRY uses slugified section names, rather than the actual text of the HTML header.
-        // We need to add an Obsidian block note marker to all section headers to contain that slug.
+        // So we need to look up the slug in the Journal Page's TOC.
+        let result = filename;
         if (section && linkdoc instanceof JournalEntryPage) {
             const toc = linkdoc.toc;
             if (toc[section]) 
@@ -153,63 +154,48 @@ function convertLinks(markdown, doc) {
     }
     
     // Convert all the links
-    // Replace Journal Links
-    if (markdown.includes('@JournalEntry')) {
-        // The square brackets in @JournalEntry will already have been escaped! if text was converted to markdown
-        const pattern1 = /@([a-zA-Z]+)\\\[([^\]]*)\\\]{([^\}]*)}/g;
-        markdown = markdown.replaceAll(pattern1, replaceLink);
-        // Foundry V10 allows markdown, which won't have escaped markers
-        const pattern2 = /@([a-zA-Z]+)\[([^\]]*)\]{([^\}]*)}/g;
-        markdown = markdown.replaceAll(pattern2, replaceLink);
-    }
-    // Converted text has the first [ escaped
-    if (markdown.includes('@UUID\\[')) {
-        // The square brackets in @JournalEntry will already have been escaped!
-        const pattern = /@(UUID)\\\[([^#\\]+)(?:#([^\\]+))?\\\](?:{([^}]+)})?/g;
-        //cst pattern = /@UUID\\\[([a-zA-Z]*)\.([^\]]*)\\\]{([^\}]*)}/g;
-        markdown = markdown.replaceAll(pattern, replaceLink);
-    }
-    // Converted markdown does NOT include the escape flag
-    if (markdown.includes('@UUID[')) {
-        const pattern = new RegExp(`@(UUID)\\[([^#\\]]+)(?:#([^\\]]+))?](?:{([^}]+)})?`, "g");
-        //const pattern = /@UUID\[([a-zA-Z]*)\.([^\]]*)\]{([^\}]*)}/g;
-        markdown = markdown.replaceAll(pattern, replaceLink);
-    }
-    // Convert other types of links into "undocumented" links, rather than displaying the full raw.
-    if (markdown.match(/@[A-Za-z]+\\\[/)) {
-        const pattern = /@([A-Za-z]+)\\\[([^#\\]+)(?:#([^\\]+))?\\\](?:{([^}]+)})?/g;
-        markdown = markdown.replaceAll(pattern, replaceLink);
-    }
-    if (markdown.match(/@[A-Za-z]+\[/)) {
-        const pattern = new RegExp(`@([A-Za-z]+)\\[([^#\\]]+)(?:#([^\\]]+))?](?:{([^}]+)})?`, "g");
-        markdown = markdown.replaceAll(pattern, replaceLink);
-    }
+    const pattern = /@([A-Za-z]+)\[([^#\]]+)(?:#([^\]]+))?](?:{([^}]+)})?/g;
+    markdown = markdown.replaceAll(pattern, replaceLink);
     
-    // Replace file references
-    if (markdown.includes('![](')) {
-        //console.log(`File ${item.filename} has images`);
-        const filepattern = /!\[\]\(([^)]*)\)/g;
-        markdown = markdown.replaceAll(filepattern, fileconvert);
-    }
+    // Replace file references (TBD AFTER HTML conversion)
+    const filepattern = /!\[\]\(([^)]*)\)/g;
+    markdown = markdown.replaceAll(filepattern, fileconvert);
 
     return markdown;
 }
 
 function convertHtml(doc, html) {
+    // Foundry uses "showdown" rather than "turndown":
+    /*{
+        let mark = JournalTextPageSheet._converter.makeMarkdown(html);
+        return convertLinks(mark, doc).replaceAll("\\[\\[","[[").replaceAll("\\]\\]","]]");
+        // SHOWDOWN fails to parse tables at all
+    }*/
+
     if (!turndownService) {
         // Setup Turndown service to use GFM for tables
-        turndownService = new TurndownService({ headingStyle: "atx" });
-        gfm = turndownPluginGfm.gfm;
+        // headingStyle: "atx"  <-- use "###" to indicate heading (whereas setext uses === or --- to underline headings)
+        turndownService = new TurndownService({ 
+            headingStyle: "atx",
+            codeBlockStyle: "fenced"
+        });
+        // GFM provides supports for strikethrough, tables, taskListItems, highlightedCodeBlock
+        gfm = TurndownPluginGfmService.gfm;
         turndownService.use(gfm);
     }
     let markdown;
     try {
-        markdown = turndownService.turndown(html);
+        // Convert links BEFORE doing HTML->MARKDOWN (to get links inside tables working properly)
+        // The conversion "escapes" the "[[...]]" markers, so we have to remove those markers afterwards
+        markdown = turndownService.turndown(convertLinks(html, doc)).replaceAll("\\[\\[","[[").replaceAll("\\]\\]","]]");
+        // Now convert file references
+        const filepattern = /!\[\]\(([^)]*)\)/g;
+        markdown = markdown.replaceAll(filepattern, fileconvert);    
     } catch (error) {
         console.warn(`Error: failed to decode html:`, html)
     }
 
-    markdown = convertLinks(markdown, doc);
+    //markdown = convertLinks(markdown, doc);
 
     return markdown;
 }
@@ -360,9 +346,6 @@ export async function exportMarkdown(from, zipname) {
 }
 
 Hooks.once('init', async () => {
-    // Only available to GMs
-    if (!game.user.isGM) return;
-
     // If not done during "init" hook, then the journal entry context menu doesn't work
 
     // JOURNAL ENTRY context menu
@@ -370,7 +353,7 @@ Hooks.once('init', async () => {
         return wrapped(...args).concat({
             name: `${MODULE_NAME}.exportToMarkdown`,
             icon: '<i class="fas fa-file-zip"></i>',
-            condition: game.user.isGM,
+            condition: () => game.user.isGM,
             callback: async header => {
                 const li = header.closest(".directory-item");
                 const entry = this.collection.get(li.data("entryId"));
@@ -404,7 +387,7 @@ Hooks.once('init', async () => {
         return wrapped(...args).concat({
             name: `${MODULE_NAME}.exportToMarkdown`,
             icon: '<i class="fas fa-file-zip"></i>',
-            condition: game.user.isGM,
+            condition: () => game.user.isGM,
             callback: async header => {
                 const li = header.closest(".directory-item")[0];
                 const folder = await fromUuid(li.dataset.uuid);
