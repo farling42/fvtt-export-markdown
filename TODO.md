@@ -26,14 +26,14 @@ One note per entry?
 ## Encounter Statblocks
 
 ```code
-  ```encounter
+  \```encounter
     name: A01 Damp Entrance
     creatures:
     - 3: Mitflit
-  ```
-  ```statblock
+  \```
+  \```statblock
     monster: mitflit
-  ```
+  \```
 ```
 
 ## BUGS
