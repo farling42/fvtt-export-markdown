@@ -25,6 +25,8 @@ One note per entry?
 
 ## Encounter Statblocks
 
+Support the **Initiative Tracker** and **Fantasy Stablocks** Obsidian.md plugins
+
 ```code
   \```encounter
     name: A01 Damp Entrance

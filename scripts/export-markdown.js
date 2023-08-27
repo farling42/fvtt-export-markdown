@@ -88,7 +88,8 @@ function fileconvert(str, filename) {
     let basefilename = filename.slice(filename.lastIndexOf("/") + 1);
 
     zip.folder(destForImages).file(basefilename, 
-        // Provide a Promise which JSZIP will wait for before saving the file
+        // Provide a Promise which JSZIP will wait for before saving the file.
+        // (Note that a CORS request will fail at this point.)
         fetch(filename).then(resp => {
             if (resp.status !== 200) {
                 console.error(`Failed to fetch image from '${filename}' (response ${resp.status})`)
@@ -268,11 +269,46 @@ function oneRollTable(path, table) {
     zip.folder(path).file(`${notefilename(table)}.md`, markdown, { binary: false });
 }
 
+function documentToJSON(path, doc) {
+    // see Foundry exportToJSON
+    const MARKER = "```";
+    const EOL = "\n";
+
+    const data = doc.toCompendium(null);
+    // Remove things the user is unlikely to need
+    if (data.prototypeToken) delete data.prototypeToken;
+
+    let markdown = frontmatter(doc);
+    if (doc.img) markdown += fileconvert(`![](${doc.img})`, doc.img) + EOL + EOL;
+
+    // Some common locations for descriptions
+    const DESCRIPTIONS = [
+        "system.details.biography.value",  // DND5e Actor
+        "system.description.value",        // DND5E Item
+        "system.details.publicNotes"       // PF2e  Actor
+    ]
+    for (const field of DESCRIPTIONS) {
+        let text = foundry.utils.getProperty(doc, field);
+        if (text) markdown += convertHtml(doc, text) + EOL + EOL;
+    }
+
+    // TODO: maybe extract Items as separate notes?
+    
+    markdown +=
+        MARKER + doc.documentName + EOL + 
+        JSON.stringify(doc, null, 2) + EOL + 
+        MARKER + EOL;
+
+    zip.folder(path).file(`${notefilename(doc)}.md`, markdown, { binary: false });
+}
+
 function oneDocument(path, doc) {
     if (doc instanceof JournalEntry)
         oneJournal(path, doc);
     else if (doc instanceof RollTable)
         oneRollTable(path, doc);
+    else
+        documentToJSON(path, doc);
 }
 
 function oneFolder(path, folder) {
@@ -287,7 +323,6 @@ function oneFolder(path, folder) {
 
 async function onePack(path, pack) {
     let type = pack.metadata.type;
-    if (type != 'JournalEntry' && type != 'RollTable') return;
     console.debug(`Collecting pack '${pack.title}'`)
     let subpath = formpath(path, validFilename(pack.title));
     const documents = await pack.getDocuments();
@@ -312,11 +347,7 @@ export async function exportMarkdown(from, zipname) {
 
     const TOP_PATH = "";
 
-    if (from instanceof JournalEntry) {
-        oneJournal(TOP_PATH, from);
-    } else if (from instanceof RollTable) {
-        oneRollTable(TOP_PATH, from);
-    } else if (from instanceof Folder) {
+    if (from instanceof Folder) {
         console.debug(`Processing one Folder`)
         // Do we put in the full hierarchy that might be ABOVE the indicated folder
         if (from.type === "Compendium")
@@ -334,11 +365,9 @@ export async function exportMarkdown(from, zipname) {
         }
     } else if (from instanceof CompendiumCollection) {
         await onePack(TOP_PATH, from);
-    } else {
-        ui.notifications.error(`Invalid object '${from.applicationClass.name}' passed to exportMarkdown`)
-        ui.notifications.remove(noteid);
-        return;
-    }
+    } else
+        await oneDocument(TOP_PATH, from);
+
 
     let blob = await zip.generateAsync({ type: "blob" });
     await saveDataToFile(blob, `${validFilename(zipname)}.zip`);
@@ -362,18 +391,13 @@ Hooks.once('init', async () => {
             },
         });
     }
-    libWrapper.register(MODULE_NAME, "JournalDirectory.prototype._getEntryContextOptions", addEntryMenu, libWrapper.WRAPPER);
-    libWrapper.register(MODULE_NAME, "RollTableDirectory.prototype._getEntryContextOptions", addEntryMenu, libWrapper.WRAPPER);
-
-    function supportedDocType(docname) {
-        return docname === 'JournalEntry' || docname === 'RollTable';
-    }
+    libWrapper.register(MODULE_NAME, "DocumentDirectory.prototype._getEntryContextOptions", addEntryMenu, libWrapper.WRAPPER);
 
     function addCompendiumEntryMenu(wrapped, ...args) {
         return wrapped(...args).concat({
             name: `${MODULE_NAME}.exportToMarkdown`,
             icon: '<i class="fas fa-file-zip"></i>',
-            condition: li => game.user.isGM && supportedDocType(game.packs.get(li.data("pack"))?.documentName),
+            condition: li => game.user.isGM,
             callback: async li => {
                 const pack = game.packs.get(li.data("pack"));
                 exportMarkdown(pack, pack.title)
@@ -396,16 +420,14 @@ Hooks.once('init', async () => {
             },
         });
     }
-    libWrapper.register(MODULE_NAME, "JournalDirectory.prototype._getFolderContextOptions", addFolderMenu, libWrapper.WRAPPER);
-    libWrapper.register(MODULE_NAME, "RollTableDirectory.prototype._getFolderContextOptions", addFolderMenu, libWrapper.WRAPPER);
+    libWrapper.register(MODULE_NAME, "DocumentDirectory.prototype._getFolderContextOptions", addFolderMenu, libWrapper.WRAPPER);
     libWrapper.register(MODULE_NAME, "CompendiumDirectory.prototype._getFolderContextOptions", addFolderMenu, libWrapper.WRAPPER);
 })
 
 Hooks.on("renderSidebarTab", async (app, html) => {
     if (!game.user.isGM) return;
 
-    if (app instanceof JournalDirectory   ||
-        app instanceof RollTableDirectory || 
+    if (app instanceof DocumentDirectory ||
         app instanceof CompendiumDirectory) {
         const label = game.i18n.localize(`${MODULE_NAME}.exportToMarkdown`);
         let button = $(`<button class='import-cd'><i class='fas fa-file-zip'></i>${label}</button>`)
