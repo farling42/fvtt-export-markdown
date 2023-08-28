@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## 0.9.0
+
+- Add Tiles as additional layers to Scenes.
+- The Leaflet plugin does not allow a Scene marker to have a colon (":") in it's label, apparently - so they are now replaced by underscores ("_").
+
 ## 0.8.0
 
 - Convert Scenes into an annotation block that can be used by Obsidian's [leaflet](https://github.com/javalent/obsidian-leaflet) plugin.

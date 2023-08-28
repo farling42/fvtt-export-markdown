@@ -279,11 +279,14 @@ function oneRollTable(path, table) {
 
 function oneScene(path, scene) {
 
+    const sceneBottom = scene.dimensions.sceneRect.bottom;
+    const sceneLeft   = scene.dimensions.sceneRect.left;
     const units_per_pixel = /*units*/ scene.grid.distance / /*pixels*/ scene.grid.size;
 
     function coord(pixels) {
         return pixels * units_per_pixel;
     }
+    function coord2(pixely, pixelx) { return `${coord(sceneBottom - pixely)}, ${coord(pixelx - sceneLeft)}` };
 
     let markdown = frontmatter(scene);
 
@@ -294,15 +297,31 @@ function oneScene(path, scene) {
     }
 
     // Two "image:" lines just appear as separate layers in leaflet.
-    let fgimg="";
-    if (scene.foreground) fgimg = `imageOverlay:\n    - [ ${fileconvert(scene.foreground, scene.foreground).replace("!","").replace("]","|Foreground]")} ]\n`;
+    let overlays=[]
+    if (scene.foreground) {
+        overlays.push(`${fileconvert(scene.foreground, scene.foreground).replace("!","").replace("]","|Foreground]")}`);
+    }
 
+    for (const tile of scene.tiles) {
+        // tile.overhead
+        // tile.roof
+        // tile.hidden
+        // tile.z
+        // tile.alpha
+        // - [ [[ImageFile2|Optional Alias]], [Top Left Coordinates], [Bottom Right Coordinates] ]
+        let name = tile.texture.src;
+        let pos = name.lastIndexOf('/');
+        if (pos) name = name.slice(pos+1);
+        overlays.push(`${fileconvert(tile.texture.src, tile.texture.src).replace("!","").replace("]","|" + name + "]")}, [${coord2(tile.y+tile.height-1, tile.x)}], [${coord2(tile.y, tile.x+tile.width-1)}]`);
+    }
+
+    let layers = (overlays.length === 0) ? "" : 'imageOverlay:\n' + overlays.map(layer => `    - [ ${layer} ]\n`).join("");
     // scene.navName - maybe an alias in the frontmatter (if non-empty, and different from scene.name)
     markdown += 
         `\n${MARKER}leaflet\n` +
         `id: ${scene.uuid}\n` +
         `image: ${fileconvert(scene.background.src, scene.background.src).replace("!","")}\n` +
-        fgimg +
+        layers +
         `height: 100%\n` +
         `draw: false\n` +
         `unit: ${scene.grid.units}\n` +
@@ -316,14 +335,14 @@ function oneScene(path, scene) {
     // scene.grid: { alpha: 0.2, color: "#000000", distance: 5, size: 150, type: 1, units: "ft"}
     // scene.height/width
 
-    const sceneBottom = scene.dimensions.sceneRect.bottom;
-    const sceneLeft   = scene.dimensions.sceneRect.left;
     for (const note of scene.notes) {
         const linkdoc = note.page || note.entry;
         const linkfile = linkdoc ? notefilename(linkdoc) : "Not Linked";
+        // Leaflet plugin doesn't like ":" appearsing in the Note's label.
+        const label = note.label.replaceAll(":","_");
 
         // invert Y coordinate, and remove the padding from the note's X,Y position
-        markdown += `marker: default, ${coord(sceneBottom - note.y)}, ${coord(note.x - sceneLeft)}, [[${linkfile}]], "${note.label}"\n`;
+        markdown += `marker: default, ${coord2(note.y, note.x)}, [[${linkfile}]], "${label}"\n`;
             //`    icon: ${note.texture.src}` + EOL +
     }
     markdown += MARKER;
