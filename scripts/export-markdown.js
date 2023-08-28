@@ -90,7 +90,10 @@ function fileconvert(str, filename) {
         return str;
     }
     filename = decodeURIComponent(filename);
-    let basefilename = filename.slice(filename.lastIndexOf("/") + 1);
+    //let basefilename = filename.slice(filename.lastIndexOf("/") + 1);
+    // ensure same base filename in different paths are stored as different files,
+    // whilst keeping the total length below the ZIP limit of 260 characters.
+    let basefilename = filename.replaceAll("/","-").slice(-250 + destForImages.length); 
 
     zip.folder(destForImages).file(basefilename, 
         // Provide a Promise which JSZIP will wait for before saving the file.
@@ -290,11 +293,16 @@ function oneScene(path, scene) {
         zip.folder(path).file(`${notefilename(scene)}.md`, markdown, { binary: false });
     }
 
+    // Two "image:" lines just appear as separate layers in leaflet.
+    let fgimg="";
+    if (scene.foreground) fgimg = `imageOverlay:\n    - [ ${fileconvert(scene.foreground, scene.foreground).replace("!","").replace("]","|Foreground]")} ]\n`;
+
     // scene.navName - maybe an alias in the frontmatter (if non-empty, and different from scene.name)
     markdown += 
         `\n${MARKER}leaflet\n` +
         `id: ${scene.uuid}\n` +
         `image: ${fileconvert(scene.background.src, scene.background.src).replace("!","")}\n` +
+        fgimg +
         `height: 100%\n` +
         `draw: false\n` +
         `unit: ${scene.grid.units}\n` +

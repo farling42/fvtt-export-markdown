@@ -3,7 +3,9 @@
 ## 0.8.0
 
 - Convert Scenes into an annotation block that can be used by Obsidian's [leaflet](https://github.com/javalent/obsidian-leaflet) plugin.
+- If a scene has a foreground image, it is NOT displayed by default, but can be displayed via the layers control in the leaflet plugin.
 - Create Notes for Playlists - one note per playlist, with a separate audio player for each track within the playlist.
+- Store all ASSETS in a LONG filename which includes the path to that file (to avoid issues with the base filename being the same in different folders).
 
 ## 0.7.0
 

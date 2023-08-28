@@ -10,10 +10,8 @@ Or use a user-provided handlebars template for the note
 
 Convert to whatever Obsidian has as a map plugin:
 
-- scene background
-- scene notes
 - tokens?
-- tiles?
+- tiles?  (imageOverlay)
 
 ## PLAYLIST
 
