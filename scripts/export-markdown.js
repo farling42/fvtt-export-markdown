@@ -13,6 +13,8 @@ const destForImages = "zz_asset-files";
 let zip;
 
 const OPTION_DUMP = "dataType";
+const OPTION_OBSIDIAN = "obsidian";
+const OPTION_LEAFLET = "leaflet";
 
 class DOCUMENT_ICON {
     // indexed by CONST.DOCUMENT_TYPES
@@ -320,14 +322,17 @@ function oneScene(path, scene) {
     markdown += 
         `\n${MARKER}leaflet\n` +
         `id: ${scene.uuid}\n` +
-        `image: ${fileconvert(scene.background.src, scene.background.src).replace("!","")}\n` +
-        layers +
+        `bounds:\n    - [0, 0]\n    - [${coord(scene.dimensions.sceneRect.height)}, ${coord(scene.dimensions.sceneRect.width)}]\n` +
+        "defaultZoom: 2\n" +
+        `lat: ${coord(scene.dimensions.sceneRect.height/2)}}\n` +
+        `long: ${coord(scene.dimensions.sceneRect.width/2)}}\n` +
         `height: 100%\n` +
         `draw: false\n` +
         `unit: ${scene.grid.units}\n` +
         `showAllMarkers: true\n` +
         `preserveAspect: true\n` +
-        `bounds: [[0, 0], [${coord(scene.dimensions.sceneRect.height)}, ${coord(scene.dimensions.sceneRect.width)}]]\n`;
+        `image: ${fileconvert(scene.background.src, scene.background.src).replace("!","")}\n` +
+        layers;
 
     // scene.dimensions.distance / distancePixels / height / maxR / ratio
     // scene.dimensions.rect: (x, y, width, height, type:1)
@@ -428,12 +433,18 @@ function oneDocument(path, doc) {
         oneJournal(path, doc);
     else if (doc instanceof RollTable)
         oneRollTable(path, doc);
-    else if (doc instanceof Scene)
+    else if (doc instanceof Scene && game.settings.get(MODULE_NAME, OPTION_LEAFLET))
         oneScene(path, doc);
     else if (doc instanceof Playlist)
         onePlaylist(path, doc);
     else
         documentToJSON(path, doc);
+    // Actor
+    // Cards
+    // ChatMessage
+    // Combat
+    // Item
+    // Macro
 }
 
 function oneFolder(path, folder) {
@@ -586,6 +597,15 @@ Hooks.once('init', () => {
             "JSON": "JSON"
         },
 		default: "YAML",
+		config: true,
+	});
+
+    game.settings.register(MODULE_NAME, OPTION_LEAFLET, {
+		name: "Format Scenes for Leaflet plugin",
+		hint: "Create Notes in a format suitable for use with Obsidian's Leaflet plugin",
+		scope: "world",
+		type:  Boolean,
+		default: true,
 		config: true,
 	});
 })
