@@ -4,6 +4,9 @@
 
 - Add Tiles as additional layers to Scenes.
 - The Leaflet plugin does not allow a Scene marker to have a colon (":") in it's label, apparently - so they are now replaced by underscores ("_").
+- The generation of Leaflet format data for Scenes is now optional.
+- Export ChatLog as markdown (TODO: fix the colour of the "Export Markdown" button)
+- Export Encounters as markdown (TODO: improve the position/size of the "Export Markdown" button)
 
 ## 0.8.0
 

@@ -121,7 +121,7 @@ function notefilename(doc) {
     if (doc instanceof JournalEntryPage)
         docname = (doc.parent.pages.size === 1) ? doc.parent.name : docname = doc.name;
     else 
-        docname = doc.name;
+        docname = doc.name || doc.uuid;
     return validFilename(docname);
 }
 
@@ -442,9 +442,32 @@ function oneDocument(path, doc) {
     // Actor
     // Cards
     // ChatMessage
-    // Combat
+    // Combat(Tracker)
     // Item
     // Macro
+}
+
+async function oneChatMessage(path, message) {
+    let html = await message.getHTML();
+    console.debug(html);
+    if (!html?.length) return message.export();
+
+    return `## ${new Date(message.data.timestamp).toLocaleString()}\n\n` + 
+        convertHtml(message, html[0].outerHTML);
+}
+
+async function oneChatLog(path, chatlog) {
+    // game.messages.export:
+    // Messages.export()
+    let log=""
+    for (const message of chatlog.collection) {
+        log += await oneChatMessage(path, message) + "\n\n---------------------------\n\n";
+    }
+    //const log = chatlog.collection.map(m => oneChatMessage(path, m)).join("\n---------------------------\n");
+    let date = new Date().toDateString().replace(/\s/g, "-");
+    const filename = `log-${date}.md`;
+
+    zip.folder(path).file(filename, log, { binary: false });
 }
 
 function oneFolder(path, folder) {
@@ -501,6 +524,13 @@ export async function exportMarkdown(from, zipname) {
         }
     } else if (from instanceof CompendiumCollection) {
         await onePack(TOP_PATH, from);
+    } else if (from instanceof CombatTracker) {
+        for (const combat of from.combats) {
+            await oneDocument(TOP_PATH, combat);
+        }
+    }
+    else if (from instanceof ChatLog) {
+        await oneChatLog(from.title, from);
     } else
         await oneDocument(TOP_PATH, from);
 
@@ -569,15 +599,23 @@ Hooks.on("renderSidebarTab", async (app, html) => {
     if (!game.user.isGM) return;
 
     if (app instanceof DocumentDirectory ||
+        app instanceof CombatTracker ||
+        app instanceof ChatLog ||
         app instanceof CompendiumDirectory) {
         const label = game.i18n.localize(`${MODULE_NAME}.exportToMarkdown`);
-        let button = $(`<button class='import-cd'><i class='fas fa-file-zip'></i>${label}</button>`)
-        button.click(function () {
+        const help  = game.i18n.localize(`${MODULE_NAME}.exportToMarkdownTooltip`);
+        let button = $(`<button title="${help}"><i class='fas fa-file-zip'></i>${label}</button>`)
+        button.click((event) => {
+            event.preventDefault();
             exportMarkdown(app, zipfilename(app.constructor.name));
         });
 
-        let anchor = html.find(".directory-footer");
-        anchor.append(button);
+        if (app instanceof ChatLog)
+            html.find("#chat-form").append(button);
+        else
+            html.find(".directory-footer").append(button);
+    } else {
+        console.debug(`Export-Markdown | Not adding button to sidebar`, app)
     }
 })
 
