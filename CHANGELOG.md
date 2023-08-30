@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## 0.9.1
+
+- Ensure that the module works on Foundry V10.
+- Tidy-up the positioning of the "Export Markdown" button at the bottom of each sidebar tab.
+
 ## 0.9.0
 
 - Add Tiles as additional layers to Scenes.

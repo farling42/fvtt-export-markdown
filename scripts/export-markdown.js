@@ -497,6 +497,8 @@ async function onePackFolder(path, folder) {
     }
 }
 
+let is_v10=false
+
 export async function exportMarkdown(from, zipname) {
     let noteid = ui.notifications.info(`${MODULE_NAME}.ProgressNotification`, {permanent: true, localize: true})
     // Wait for the notification to get drawn
@@ -514,12 +516,13 @@ export async function exportMarkdown(from, zipname) {
         else
             oneFolder(TOP_PATH, from);
     }
-    else if (from instanceof DocumentDirectory) {
-        for (const doc of from.collection) {
+    else if (is_v10 ? from instanceof SidebarDirectory : from instanceof DocumentDirectory) {
+        for (const doc of from.documents) {
             oneDocument(folderpath(doc), doc);
         }
     } else if (from instanceof CompendiumDirectory) {
-        for (const doc of from.collection) {
+        // from.collection does not exist in V10
+        for (const doc of game.packs) {
             await onePack(folderpath(doc), doc);
         }
     } else if (from instanceof CompendiumCollection) {
@@ -534,10 +537,10 @@ export async function exportMarkdown(from, zipname) {
     } else
         await oneDocument(TOP_PATH, from);
 
-
     let blob = await zip.generateAsync({ type: "blob" });
     await saveDataToFile(blob, `${validFilename(zipname)}.zip`);
-    ui.notifications.remove(noteid);
+    // ui.notifications.remove does not exist in Foundry V10
+    ui.notifications.remove?.(noteid);
 }
 
 function zipfilename(name, type) {
@@ -546,7 +549,12 @@ function zipfilename(name, type) {
 }
 
 Hooks.once('init', async () => {
+    // Foundry V10 doesn't use DocumentDirectory
+    is_v10 = (typeof DocumentDirectory === "undefined");
+
     // If not done during "init" hook, then the journal entry context menu doesn't work
+
+    const baseClass = is_v10 ? "SidebarDirectory" : "DocumentDirectory";
 
     // JOURNAL ENTRY context menu
     function addEntryMenu(wrapped, ...args) {
@@ -556,13 +564,15 @@ Hooks.once('init', async () => {
             condition: () => game.user.isGM,
             callback: async header => {
                 const li = header.closest(".directory-item");
-                const entry = this.collection.get(li.data("entryId"));
+                const id = li.data(is_v10 ? "documentId" : "entryId");
+                const entry = this.documents.find(d => d.id === id);
+                //const entry = this.collection.get(li.data("entryId")); // works only on V11+
                 if (!entry) return;
                 exportMarkdown(entry, zipfilename(entry.name, entry.constructor.name));
             },
         });
     }
-    libWrapper.register(MODULE_NAME, "DocumentDirectory.prototype._getEntryContextOptions", addEntryMenu, libWrapper.WRAPPER);
+    libWrapper.register(MODULE_NAME, `${baseClass}.prototype._getEntryContextOptions`, addEntryMenu, libWrapper.WRAPPER);
 
     function addCompendiumEntryMenu(wrapped, ...args) {
         return wrapped(...args).concat({
@@ -585,35 +595,30 @@ Hooks.once('init', async () => {
             condition: () => game.user.isGM,
             callback: async header => {
                 const li = header.closest(".directory-item")[0];
-                const folder = await fromUuid(li.dataset.uuid);
+                // li.dataset.uuid does not exist in Foundry V10
+                const folder = await fromUuid(`Folder.${li.dataset.folderId}`);
                 if (!folder) return;
                 exportMarkdown(folder, zipfilename(folder.name, folder.type));
             },
         });
     }
-    libWrapper.register(MODULE_NAME, "DocumentDirectory.prototype._getFolderContextOptions", addFolderMenu, libWrapper.WRAPPER);
-    libWrapper.register(MODULE_NAME, "CompendiumDirectory.prototype._getFolderContextOptions", addFolderMenu, libWrapper.WRAPPER);
+    libWrapper.register(MODULE_NAME, `${baseClass}.prototype._getFolderContextOptions`, addFolderMenu, libWrapper.WRAPPER);
+    if (!is_v10) libWrapper.register(MODULE_NAME, "CompendiumDirectory.prototype._getFolderContextOptions", addFolderMenu, libWrapper.WRAPPER);
 })
 
 Hooks.on("renderSidebarTab", async (app, html) => {
     if (!game.user.isGM) return;
 
-    if (app instanceof DocumentDirectory ||
-        app instanceof CombatTracker ||
-        app instanceof ChatLog ||
-        app instanceof CompendiumDirectory) {
+    if (!(app instanceof Settings)) {
         const label = game.i18n.localize(`${MODULE_NAME}.exportToMarkdown`);
         const help  = game.i18n.localize(`${MODULE_NAME}.exportToMarkdownTooltip`);
-        let button = $(`<button title="${help}"><i class='fas fa-file-zip'></i>${label}</button>`)
+        let button = $(`<button style="flex: 0" title="${help}"><i class='fas fa-file-zip'></i>${label}</button>`)
         button.click((event) => {
             event.preventDefault();
             exportMarkdown(app, zipfilename(app.constructor.name));
         });
 
-        if (app instanceof ChatLog)
-            html.find("#chat-form").append(button);
-        else
-            html.find(".directory-footer").append(button);
+        html.append(button);
     } else {
         console.debug(`Export-Markdown | Not adding button to sidebar`, app)
     }
