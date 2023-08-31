@@ -12,6 +12,7 @@ Convert to whatever Obsidian has as a map plugin:
 
 - tokens?
 - tiles?  (imageOverlay)
+- drawings
 
 ## PLAYLIST
 
@@ -23,7 +24,7 @@ One note per entry?
 
 ## Encounter Statblocks
 
-Support the **Initiative Tracker** and **Fantasy Stablocks** Obsidian.md plugins
+Support the **Initiative Tracker** and **Fantasy Statblocks** Obsidian.md plugins
 
 ```code
   \```encounter
@@ -35,8 +36,3 @@ Support the **Initiative Tracker** and **Fantasy Stablocks** Obsidian.md plugins
     monster: mitflit
   \```
 ```
-
-## BUGS
-
-- Links inside tables created by HTML->markdown converter don't have their "|" escaped to be "\|", so the table isn't formatted properly.
-- Tables aren't appearing with a blank line before them.
