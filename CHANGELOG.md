@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## 0.10.0
+
+- All filenames are now the Foundry UUID, in order to see document titles in the sidebar Explorer Obsidian's "Front Matter Title" plugin should be used.
+- All pages have a H1 header containing the name of the note.
+- This will ensure that over transfers of multiple ZIP files that all the links will resolve themselves normally.
+
 ## 0.9.1
 
 - Ensure that the module works on Foundry V10.

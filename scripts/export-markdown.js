@@ -16,6 +16,8 @@ const OPTION_DUMP = "dataType";
 const OPTION_OBSIDIAN = "obsidian";
 const OPTION_LEAFLET = "leaflet";
 
+const IMG_SIZE = 150;
+
 class DOCUMENT_ICON {
     // indexed by CONST.DOCUMENT_TYPES
     static table = {
@@ -117,50 +119,57 @@ function fileconvert(str, filename) {
 }
 
 function notefilename(doc) {
-    let docname;
-    if (doc instanceof JournalEntryPage)
-        docname = (doc.parent.pages.size === 1) ? doc.parent.name : docname = doc.name;
-    else 
-        docname = doc.name || doc.uuid;
-    return validFilename(docname);
+    return validFilename((doc instanceof JournalEntryPage && doc.parent.pages.size === 1) ? doc.parent.uuid : doc.uuid);
 }
 
 let turndownService, gfm;
 
-function pathify(id) {
-    return id.replaceAll('.','/').replaceAll('|','¬');
-}
-
-function convertLinks(markdown, doc) {
+function convertLinks(markdown, relativeTo) {
 
     // Needs to be nested so that we have access to 'doc'
-    function replaceLink(str, type, id, section, label, offset, string, groups) {
+    function replaceLink(str, type, target, hash, label, offset, string, groups) {
+
+        // One of my Foundry Modules introduced adding "inline" to the start of type.
+        let inline = type.startsWith("inline");
+        if (inline) type = type.slice("inline".length);
+        // Maybe handle `@PDF` links properly too
 
         function dummyLink() {
             // Make sure that "|" in the ID don't start the label early (e.g. @PDF[whatever|page=name]{label})
-            return `[[${type}/${pathify(id)}|${label}]]`
+            let body = target;
+            if (label) body += `|${label}`;
+            return `[[${body}]]`
         }
-        if (id.startsWith("Compendium.") || type === "Compendium") return dummyLink();
-    
-        let linkdoc = (type === 'UUID') ? fromUuidSync(id, { relative: doc }) : game.journal.get(id);
+
+        // Ensure the target is in a UUID format.
+        if (type !== "UUID") target = `${type}.${target}`
+
+        let linkdoc;
+        try {
+            linkdoc = fromUuidSync(target, {relative: relativeTo});
+            if (!label && !hash) label = doc.name;
+        } catch (error) {
+            console.debug(`Unable to fetch label from Compendium for ${target}`, error)
+            return dummyLink;
+        }
+
         if (!linkdoc) return dummyLink();
-        // Some types not supported yet
-        if (!['JournalEntry','JournalEntryPage','RollTable'].includes(linkdoc?.documentName)) 
-            return dummyLink();
-    
+        
         // A journal with only one page is put into a Note using the name of the Journal, not the only Page.
         let filename = notefilename(linkdoc);
-        if (filename.length === 0) return dummyLink();
     
         // FOUNDRY uses slugified section names, rather than the actual text of the HTML header.
         // So we need to look up the slug in the Journal Page's TOC.
         let result = filename;
-        if (section && linkdoc instanceof JournalEntryPage) {
+        if (hash && linkdoc instanceof JournalEntryPage) {
             const toc = linkdoc.toc;
-            if (toc[section]) 
-                result += `#${toc[section].text}`;
+            if (toc[hash]) {
+                result += `#${toc[hash].text}`;
+                if (!label) label = toc[hash].text;
+            }
         }
-        if (label !== filename) result += `|${label}`;
+        //if (inline) result = "!" + result;
+        if (label && label !== filename) result += `|${label}`;
         return `[[${result}]]`;
     }
     
@@ -217,8 +226,10 @@ function frontmatter(doc) {
         `icon: ${DOCUMENT_ICON.lookup(doc)}\n` +
         `aliases: "${doc.name}"\n` + 
         `foundryId: ${doc.uuid}\n` + 
-        FRONTMATTER;
+        FRONTMATTER +
+        `\n# ${doc.name}\n`;
 }
+
 
 function oneJournal(path, journal) {
     let subpath = path;
@@ -228,10 +239,11 @@ function oneJournal(path, journal) {
         subpath = formpath(path, jnlname);
         // TOC page 
         // This is a Folder note, so goes INSIDE the folder for this journal entry
-        let markdown = "## Table of Contents\n" + frontmatter(journal);
+        let markdown = frontmatter(journal) + "\n## Table of Contents\n";
         for (let page of journal.pages) {
-            markdown += `\n- [[${validFilename(page.name)}]]`;
+            markdown += `\n- [[${page.uuid}|${page.name}]]`;
         }
+        // Filename must match the folder name
         zip.folder(subpath).file(`${jnlname}.md`, markdown, { binary: false });
     }
 
@@ -276,7 +288,7 @@ function oneRollTable(path, table) {
     }
 
     // No path for tables
-    zip.folder(path).file(`${notefilename(table)}.md`, markdown, { binary: false });
+    zip.folder(path).file(`${table.uuid}.md`, markdown, { binary: false });
 }
 
 function oneScene(path, scene) {
@@ -295,7 +307,7 @@ function oneScene(path, scene) {
     if (scene.notes.size === 0) {
         // No notes, so simply include the actual image
         markdown += fileconvert(scene.background.src, scene.background.src) + EOL;
-        zip.folder(path).file(`${notefilename(scene)}.md`, markdown, { binary: false });
+        zip.folder(path).file(`${scene.uuid}.md`, markdown, { binary: false });
     }
 
     // Two "image:" lines just appear as separate layers in leaflet.
@@ -354,7 +366,7 @@ function oneScene(path, scene) {
 
     // scene.lights?
 
-    zip.folder(path).file(`${notefilename(scene)}.md`, markdown, { binary: false });
+    zip.folder(path).file(`${scene.uuid}.md`, markdown, { binary: false });
 }
 
 function onePlaylist(path, playlist) {
@@ -386,7 +398,7 @@ function onePlaylist(path, playlist) {
         markdown += fileconvert(sound.path, sound.path) + EOL;
     }
 
-    zip.folder(path).file(`${notefilename(playlist)}.md`, markdown, { binary: false });
+    zip.folder(path).file(`${playlist.uuid}.md`, markdown, { binary: false });
 }
 
 function documentToJSON(path, doc) {
@@ -397,7 +409,7 @@ function documentToJSON(path, doc) {
     if (data.prototypeToken) delete data.prototypeToken;
 
     let markdown = frontmatter(doc);
-    if (doc.img) markdown += fileconvert(`![](${doc.img})`, doc.img) + EOL + EOL;
+    if (doc.img) markdown += fileconvert(`![](${doc.img|IMG_SIZE})`, doc.img) + EOL + EOL;
 
     // Some common locations for descriptions
     const DESCRIPTIONS = [
@@ -425,7 +437,7 @@ function documentToJSON(path, doc) {
         datastring +
         MARKER + EOL;
 
-    zip.folder(path).file(`${notefilename(doc)}.md`, markdown, { binary: false });
+    zip.folder(path).file(`${doc.uuid}.md`, markdown, { binary: false });
 }
 
 function oneDocument(path, doc) {
