@@ -6,6 +6,7 @@
 - All pages have a H1 header containing the name of the note.
 - This will ensure that over transfers of multiple ZIP files that all the links will resolve themselves normally.
 - Scenes will always have the leaflet data generated (previously a simple image was used if there were no Notes on the scene.)
+- Scene Notes now only show the name of the destination note.
 
 ## 0.9.1
 

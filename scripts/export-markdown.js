@@ -355,7 +355,7 @@ function oneScene(path, scene) {
         const label = note.label.replaceAll(":","_");
 
         // invert Y coordinate, and remove the padding from the note's X,Y position
-        markdown += `marker: default, ${coord2(note.y, note.x)}, [[${linkfile}]], "${label}"\n`;
+        markdown += `marker: default, ${coord2(note.y, note.x)}, [[${linkfile}|${label}]]\n`;
             //`    icon: ${note.texture.src}` + EOL +
     }
     markdown += MARKER;
