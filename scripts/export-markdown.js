@@ -16,7 +16,7 @@ const OPTION_DUMP = "dataType";
 const OPTION_OBSIDIAN = "obsidian";
 const OPTION_LEAFLET = "leaflet";
 
-const IMG_SIZE = 150;
+const IMG_SIZE = "150";
 
 class DOCUMENT_ICON {
     // indexed by CONST.DOCUMENT_TYPES
@@ -82,7 +82,7 @@ function folderpath(journal) {
     return result;
 }
 
-function fileconvert(str, filename) {
+function fileconvert(str, filename, alias=null) {
     // See if we can grab the file.
     //console.log(`fileconvert for '${filename}'`);
     if (filename.startsWith("data:image") || filename.startsWith(":")) {
@@ -115,6 +115,8 @@ function fileconvert(str, filename) {
             return new Blob();
         }),
     {binary:true});
+
+    if (alias) basefilename += `|${alias}`;
     return `![[${basefilename}]]`;
 }
 
@@ -304,12 +306,6 @@ function oneScene(path, scene) {
 
     let markdown = frontmatter(scene);
 
-    if (scene.notes.size === 0) {
-        // No notes, so simply include the actual image
-        markdown += fileconvert(scene.background.src, scene.background.src) + EOL;
-        zip.folder(path).file(`${scene.uuid}.md`, markdown, { binary: false });
-    }
-
     // Two "image:" lines just appear as separate layers in leaflet.
     let overlays=[]
     if (scene.foreground) {
@@ -336,8 +332,8 @@ function oneScene(path, scene) {
         `id: ${scene.uuid}\n` +
         `bounds:\n    - [0, 0]\n    - [${coord(scene.dimensions.sceneRect.height)}, ${coord(scene.dimensions.sceneRect.width)}]\n` +
         "defaultZoom: 2\n" +
-        `lat: ${coord(scene.dimensions.sceneRect.height/2)}}\n` +
-        `long: ${coord(scene.dimensions.sceneRect.width/2)}}\n` +
+        `lat: ${coord(scene.dimensions.sceneRect.height/2)}\n` +
+        `long: ${coord(scene.dimensions.sceneRect.width/2)}\n` +
         `height: 100%\n` +
         `draw: false\n` +
         `unit: ${scene.grid.units}\n` +
@@ -409,7 +405,7 @@ function documentToJSON(path, doc) {
     if (data.prototypeToken) delete data.prototypeToken;
 
     let markdown = frontmatter(doc);
-    if (doc.img) markdown += fileconvert(`![](${doc.img|IMG_SIZE})`, doc.img) + EOL + EOL;
+    if (doc.img) markdown += fileconvert(`![](${doc.img})`, doc.img, IMG_SIZE) + EOL + EOL;
 
     // Some common locations for descriptions
     const DESCRIPTIONS = [
