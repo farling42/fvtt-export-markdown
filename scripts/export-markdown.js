@@ -166,6 +166,10 @@ function convertLinks(markdown, relativeTo) {
             return formatLink(target, label);
         }
 
+        // Ignore link if it isn't one that we can parse.
+        const documentTypes = new Set(CONST.DOCUMENT_LINK_TYPES.concat(["Compendium", "UUID"]));
+        if (!documentTypes.has(type)) return str;
+        
         // Ensure the target is in a UUID format.
         if (type !== "UUID") target = `${type}.${target}`
 
