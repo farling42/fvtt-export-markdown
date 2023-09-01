@@ -34,6 +34,12 @@ https://github.com/farling42/fvtt-export-markdown/releases/latest/download/modul
 
 This library requires the libWrapper module in order to work properly.
 
+## Plugins for use with Obsidian.md
+
+- "Front Matter Title" - To have document names appearing in Obsidian's Explorer (left sidebar). The only Feature which needs to be enabled is "Explorer".
+- "AidenLX's Folder Note" and "Folder Note Core" - So that journal entries have their main contents page accessible directly from the containing folder.
+- "Obsidian Leaflet" - For display of scenes with notes.
+
 ## Libraries
 
 - [JSZip](https://stuk.github.io/jszip)

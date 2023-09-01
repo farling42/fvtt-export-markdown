@@ -102,17 +102,7 @@ function formatLink(link, label=null, inline=false) {
     return result;
 }
 
-function fileconvert(str, filename, alias=null) {
-    // See if we can grab the file.
-    //console.log(`fileconvert for '${filename}'`);
-    if (filename.startsWith("data:image") || filename.startsWith(":")) {
-        // e.g.
-        // http://URL
-        // https://URL
-        // data:image;inline binary
-        console.log(`Ignoring image file/external URL in '${str}':\n${filename}`);
-        return str;
-    }
+function fileconvert(filename, label_or_size=null, inline=true) {
     filename = decodeURIComponent(filename);
     //let basefilename = filename.slice(filename.lastIndexOf("/") + 1);
     // ensure same base filename in different paths are stored as different files,
@@ -124,10 +114,10 @@ function fileconvert(str, filename, alias=null) {
         // (Note that a CORS request will fail at this point.)
         fetch(filename).then(resp => {
             if (resp.status !== 200) {
-                console.error(`Failed to fetch image from '${filename}' (response ${resp.status})`)
+                console.error(`Failed to fetch file from '${filename}' (response ${resp.status})`)
                 return new Blob();
             } else {
-                console.debug(`Adding image file ${basefilename}`);
+                console.debug(`Adding file ${basefilename}`);
                 return resp.blob();
             }
         }).catch(e => { 
@@ -136,7 +126,23 @@ function fileconvert(str, filename, alias=null) {
         }),
     {binary:true});
 
-    return formatLink(basefilename, alias, /*inline*/ true);
+    return formatLink(basefilename, label_or_size, inline);
+}
+
+function replaceLinkedFile(str, filename) {
+    // For use by String().replaceAll,
+    // Ensure we DON'T set the third parameter from a markdown link
+    // See if we can grab the file.
+    //console.log(`fileconvert for '${filename}'`);
+    if (filename.startsWith("data:image") || filename.startsWith(":")) {
+        // e.g.
+        // http://URL
+        // https://URL
+        // data:image;inline binary
+        console.log(`Ignoring file/external URL in '${str}':\n${filename}`);
+        return str;
+    }
+    return fileconvert(filename);
 }
 
 function notefilename(doc) {
@@ -196,7 +202,7 @@ function convertLinks(markdown, relativeTo) {
     
     // Replace file references (TBD AFTER HTML conversion)
     const filepattern = /!\[\]\(([^)]*)\)/g;
-    markdown = markdown.replaceAll(filepattern, fileconvert);
+    markdown = markdown.replaceAll(filepattern, replaceLinkedFile);
 
     return markdown;
 }
@@ -227,7 +233,7 @@ function convertHtml(doc, html) {
         markdown = turndownService.turndown(convertLinks(html, doc)).replaceAll("\\[\\[","[[").replaceAll("\\]\\]","]]");
         // Now convert file references
         const filepattern = /!\[\]\(([^)]*)\)/g;
-        markdown = markdown.replaceAll(filepattern, fileconvert);    
+        markdown = markdown.replaceAll(filepattern, replaceLinkedFile);    
     } catch (error) {
         console.warn(`Error: failed to decode html:`, html)
     }
@@ -279,8 +285,8 @@ function oneJournal(path, journal) {
                 }
                 break;
             case "image": case "pdf": case "video":
-                if (page.src) markdown = fileconvert(`![](${page.src})`, page.src);
-                if (page.image?.caption) markdown += `\n\n${page.image.caption}`;
+                if (page.src) markdown = fileconvert(page.src) + EOL;
+                if (page.image?.caption) markdown += EOL + page.image.caption + EOL;
                 break;
         }
         if (markdown) {
@@ -325,7 +331,7 @@ function oneScene(path, scene) {
     // Two "image:" lines just appear as separate layers in leaflet.
     let overlays=[]
     if (scene.foreground) {
-        overlays.push(`${fileconvert(scene.foreground, scene.foreground).replace("!","").replace("]","|Foreground]")}`);
+        overlays.push(`${fileconvert(scene.foreground, "Foreground", /*inline*/false)}`);
     }
 
     for (const tile of scene.tiles) {
@@ -338,7 +344,7 @@ function oneScene(path, scene) {
         let name = tile.texture.src;
         let pos = name.lastIndexOf('/');
         if (pos) name = name.slice(pos+1);
-        overlays.push(`${fileconvert(tile.texture.src, tile.texture.src).replace("!","").replace("]","|" + name + "]")}, [${coord2(tile.y+tile.height-1, tile.x)}], [${coord2(tile.y, tile.x+tile.width-1)}]`);
+        overlays.push(`${fileconvert(tile.texture.src, name, /*inline*/ false)}, [${coord2(tile.y+tile.height-1, tile.x)}], [${coord2(tile.y, tile.x+tile.width-1)}]`);
     }
 
     let layers = (overlays.length === 0) ? "" : 'imageOverlay:\n' + overlays.map(layer => `    - [ ${layer} ]\n`).join("");
@@ -355,7 +361,7 @@ function oneScene(path, scene) {
         `unit: ${scene.grid.units}\n` +
         `showAllMarkers: true\n` +
         `preserveAspect: true\n` +
-        `image: ${fileconvert(scene.background.src, scene.background.src).replace("!","")}\n` +
+        `image: ${fileconvert(scene.background.src, null, /*inline*/false)}\n` +
         layers;
 
     // scene.dimensions.distance / distancePixels / height / maxR / ratio
@@ -407,7 +413,7 @@ function onePlaylist(path, playlist) {
         // HOW to encode volume of each track?
         markdown += `#### ${sound.name}` + EOL;
         if (sound.description) markdown += sound.description + EOL
-        markdown += fileconvert(sound.path, sound.path) + EOL;
+        markdown += fileconvert(sound.path) + EOL;
     }
 
     zip.folder(path).file(zipfilename(playlist), markdown, { binary: false });
@@ -421,7 +427,7 @@ function documentToJSON(path, doc) {
     if (data.prototypeToken) delete data.prototypeToken;
 
     let markdown = frontmatter(doc);
-    if (doc.img) markdown += fileconvert(`![](${doc.img})`, doc.img, IMG_SIZE) + EOL + EOL;
+    if (doc.img) markdown += fileconvert(doc.img, IMG_SIZE) + EOL + EOL;
 
     // Some common locations for descriptions
     const DESCRIPTIONS = [
@@ -476,10 +482,9 @@ function oneDocument(path, doc) {
 
 async function oneChatMessage(path, message) {
     let html = await message.getHTML();
-    console.debug(html);
     if (!html?.length) return message.export();
 
-    return `## ${new Date(message.data.timestamp).toLocaleString()}\n\n` + 
+    return `## ${new Date(message.timestamp).toLocaleString()}\n\n` + 
         convertHtml(message, html[0].outerHTML);
 }
 
