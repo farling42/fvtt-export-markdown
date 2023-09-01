@@ -10,6 +10,7 @@
 - Sort Journal Table of Contents into correct order, and use correct indentation for the three levels of headers.
 - Remove warning generated when exporting the chat log.
 - Line breaks in table cells should be honoured.
+- Put Foundry document type into the tags part of the frontmatter (e.g. Actor, Item, JournalEntry, JournalEntryPage)
 
 ## 0.9.1
 

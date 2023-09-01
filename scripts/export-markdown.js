@@ -153,8 +153,8 @@ let turndownService, gfm;
 
 function convertLinks(markdown, relativeTo) {
 
-    // Needs to be nested so that we have access to 'doc'
-    function replaceLink(str, type, target, hash, label, offset, string, groups) {
+    // Needs to be nested so that we have access to 'relativeTo'
+    function replaceOneLink(str, type, target, hash, label, offset, string, groups) {
 
         // One of my Foundry Modules introduced adding "inline" to the start of type.
         let inline = type.startsWith("inline");
@@ -175,7 +175,7 @@ function convertLinks(markdown, relativeTo) {
             if (!label && !hash) label = doc.name;
         } catch (error) {
             console.debug(`Unable to fetch label from Compendium for ${target}`, error)
-            return dummyLink;
+            return dummyLink();
         }
 
         if (!linkdoc) return dummyLink();
@@ -198,7 +198,7 @@ function convertLinks(markdown, relativeTo) {
     
     // Convert all the links
     const pattern = /@([A-Za-z]+)\[([^#\]]+)(?:#([^\]]+))?](?:{([^}]+)})?/g;
-    markdown = markdown.replaceAll(pattern, replaceLink);
+    markdown = markdown.replaceAll(pattern, replaceOneLink);
     
     // Replace file references (TBD AFTER HTML conversion)
     const filepattern = /!\[\]\(([^)]*)\)/g;
