@@ -7,6 +7,7 @@
 - This will ensure that over transfers of multiple ZIP files that all the links will resolve themselves normally.
 - Scenes will always have the leaflet data generated (previously a simple image was used if there were no Notes on the scene.)
 - Scene Notes now only show the name of the destination note.
+- Sort Journal Table of Contents into correct order, and use correct indentation for the three levels of headers.
 
 ## 0.9.1
 

@@ -13,31 +13,35 @@ const destForImages = "zz_asset-files";
 let zip;
 
 const OPTION_DUMP = "dataType";
-const OPTION_OBSIDIAN = "obsidian";
 const OPTION_LEAFLET = "leaflet";
+const OPTION_FOLDER_AS_UUID = "folderIsUuid";
+const OPTION_NOTENAME_IS_UUID = "notenameIsUuid";
 
 const IMG_SIZE = "150";
+
+let use_uuid_for_journal_folder=true;
+let use_uuid_for_notename=true;
 
 class DOCUMENT_ICON {
     // indexed by CONST.DOCUMENT_TYPES
     static table = {
-        Actor: "user",
-        Cards: "space",
-        ChatMessage: "messages-square",
-        Combat: "swords",
-        Item: "luggage",
-        Folder: "folder",
-        JournalEntry: "book-open",
-        JournalEntryPage: "sticky-note",   // my own addition
+        Actor: ":user:",
+        Cards: ":spade:",
+        ChatMessage: ":messages-square:",
+        Combat: ":swords:",
+        Item: ":luggage:",
+        Folder: ":folder:",
+        JournalEntry: ":book:",
+        JournalEntryPage: ":sticky-note:",   // my own addition
         //Macro: "",
-        Playlist: "music",
-        RollTable: "list",
-        Scene: "map"
+        Playlist: ":music:",
+        RollTable: ":list:",
+        Scene: ":map:"
     };
 
     //User: ""
     static lookup(document) {
-        return DOCUMENT_ICON.table?.[document.documentName] || "file-question";
+        return DOCUMENT_ICON.table?.[document.documentName] || ":file-question:";
     }
 }
 
@@ -49,6 +53,14 @@ class DOCUMENT_ICON {
 function validFilename(name) {
     const regexp = /[<>:"/\\|?*]/g;
     return name.replaceAll(regexp, '_');
+}
+
+function docfilename(doc) {
+    return use_uuid_for_notename ? doc.uuid : validFilename(doc.name);
+}
+
+function zipfilename(doc) {
+    return `${docfilename(doc)}.md`;
 }
 
 function formpath(dir,file) {
@@ -71,14 +83,22 @@ function saveDataToFile(blob, filename) {
     return new Promise(resolve => setTimeout(() => { window.URL.revokeObjectURL(a.href); resolve()}, 100));
 }
 
-function folderpath(journal) {
+function folderpath(doc) {
     let result = "";
-    let folder = journal.folder;
+    let folder = doc.folder;
     while (folder) {
         const foldername = validFilename(folder.name);
         result = result ? formpath(foldername, result) : foldername;
         folder = folder.folder;
     }
+    return result;
+}
+
+function formatLink(link, label=null, inline=false) {
+    let body = link;
+    if (label && label != link) body += `|${label}`;
+    let result = `[[${body}]]`;
+    if (inline) result = "!" + result;
     return result;
 }
 
@@ -116,12 +136,11 @@ function fileconvert(str, filename, alias=null) {
         }),
     {binary:true});
 
-    if (alias) basefilename += `|${alias}`;
-    return `![[${basefilename}]]`;
+    return formatLink(basefilename, alias, /*inline*/ true);
 }
 
 function notefilename(doc) {
-    return validFilename((doc instanceof JournalEntryPage && doc.parent.pages.size === 1) ? doc.parent.uuid : doc.uuid);
+    return docfilename((doc instanceof JournalEntryPage && doc.parent.pages.size === 1) ? doc.parent : doc);
 }
 
 let turndownService, gfm;
@@ -138,9 +157,7 @@ function convertLinks(markdown, relativeTo) {
 
         function dummyLink() {
             // Make sure that "|" in the ID don't start the label early (e.g. @PDF[whatever|page=name]{label})
-            let body = target;
-            if (label) body += `|${label}`;
-            return `[[${body}]]`
+            return formatLink(target, label);
         }
 
         // Ensure the target is in a UUID format.
@@ -170,9 +187,7 @@ function convertLinks(markdown, relativeTo) {
                 if (!label) label = toc[hash].text;
             }
         }
-        //if (inline) result = "!" + result;
-        if (label && label !== filename) result += `|${label}`;
-        return `[[${result}]]`;
+        return formatLink(result, label, /*inline*/false);  // TODO: maybe pass inline if we really want inline inclusion
     }
     
     // Convert all the links
@@ -222,31 +237,32 @@ function convertHtml(doc, html) {
     return markdown;
 }
 
-function frontmatter(doc) {
+function frontmatter(doc, showheader=true) {
+    let header = showheader ? `\n# ${doc.name}\n` : "";
     return FRONTMATTER + 
         `title: "${doc.name}"\n` + 
-        `icon: ${DOCUMENT_ICON.lookup(doc)}\n` +
+        `icon: "${DOCUMENT_ICON.lookup(doc)}"\n` +
         `aliases: "${doc.name}"\n` + 
         `foundryId: ${doc.uuid}\n` + 
+        `tags:\n  - ${doc.documentName}\n` +
         FRONTMATTER +
-        `\n# ${doc.name}\n`;
+        header;
 }
 
 
 function oneJournal(path, journal) {
     let subpath = path;
     if (journal.pages.size > 1) {
-        const jnlname = validFilename(journal.name);
         // Put all the notes in a sub-folder
-        subpath = formpath(path, jnlname);
+        subpath = formpath(path, use_uuid_for_journal_folder ? docfilename(journal) : validFilename(journal.name));
         // TOC page 
         // This is a Folder note, so goes INSIDE the folder for this journal entry
         let markdown = frontmatter(journal) + "\n## Table of Contents\n";
-        for (let page of journal.pages) {
-            markdown += `\n- [[${page.uuid}|${page.name}]]`;
+        for (let page of journal.pages.contents.sort((a,b) => a.sort - b.sort)) {
+            markdown += `\n${' '.repeat(2*(page.title.level-1))}- ${formatLink(docfilename(page), page.name)}`;
         }
         // Filename must match the folder name
-        zip.folder(subpath).file(`${jnlname}.md`, markdown, { binary: false });
+        zip.folder(subpath).file(zipfilename(journal), markdown, { binary: false });
     }
 
     for (const page of journal.pages) {
@@ -268,7 +284,7 @@ function oneJournal(path, journal) {
                 break;
         }
         if (markdown) {
-            markdown = frontmatter(page) + markdown;
+            markdown = frontmatter(page, page.title.show) + markdown;
             zip.folder(subpath).file(`${notefilename(page)}.md`, markdown, { binary: false });
         }
     }
@@ -290,7 +306,7 @@ function oneRollTable(path, table) {
     }
 
     // No path for tables
-    zip.folder(path).file(`${table.uuid}.md`, markdown, { binary: false });
+    zip.folder(path).file(zipfilename(table), markdown, { binary: false });
 }
 
 function oneScene(path, scene) {
@@ -355,14 +371,14 @@ function oneScene(path, scene) {
         const label = note.label.replaceAll(":","_");
 
         // invert Y coordinate, and remove the padding from the note's X,Y position
-        markdown += `marker: default, ${coord2(note.y, note.x)}, [[${linkfile}|${label}]]\n`;
-            //`    icon: ${note.texture.src}` + EOL +
+        markdown += `marker: default, ${coord2(note.y, note.x)}, ${formatLink(linkfile, label)}\n`;
+            //`    icon: :${note.texture.src}:` + EOL +
     }
     markdown += MARKER;
 
     // scene.lights?
 
-    zip.folder(path).file(`${scene.uuid}.md`, markdown, { binary: false });
+    zip.folder(path).file(zipfilename(scene), markdown, { binary: false });
 }
 
 function onePlaylist(path, playlist) {
@@ -394,7 +410,7 @@ function onePlaylist(path, playlist) {
         markdown += fileconvert(sound.path, sound.path) + EOL;
     }
 
-    zip.folder(path).file(`${playlist.uuid}.md`, markdown, { binary: false });
+    zip.folder(path).file(zipfilename(playlist), markdown, { binary: false });
 }
 
 function documentToJSON(path, doc) {
@@ -428,12 +444,15 @@ function documentToJSON(path, doc) {
         console.error(`Unknown option for dumping objects: ${dumpoption}`)
     // TODO: maybe extract Items as separate notes?
 
+    // Convert LINKS: Foundry syntax to Markdown syntax
+    datastring = convertLinks(datastring, doc);
+
     markdown +=
         MARKER + doc.documentName + EOL + 
         datastring +
         MARKER + EOL;
 
-    zip.folder(path).file(`${doc.uuid}.md`, markdown, { binary: false });
+    zip.folder(path).file(zipfilename(doc), markdown, { binary: false });
 }
 
 function oneDocument(path, doc) {
@@ -508,6 +527,10 @@ async function onePackFolder(path, folder) {
 let is_v10=false
 
 export async function exportMarkdown(from, zipname) {
+
+    use_uuid_for_journal_folder = game.settings.get(MODULE_NAME, OPTION_FOLDER_AS_UUID);
+    use_uuid_for_notename       = game.settings.get(MODULE_NAME, OPTION_NOTENAME_IS_UUID);
+
     let noteid = ui.notifications.info(`${MODULE_NAME}.ProgressNotification`, {permanent: true, localize: true})
     // Wait for the notification to get drawn
     await new Promise(resolve => setTimeout(resolve, 100));
@@ -551,7 +574,7 @@ export async function exportMarkdown(from, zipname) {
     ui.notifications.remove?.(noteid);
 }
 
-function zipfilename(name, type) {
+function ziprawfilename(name, type) {
     if (!type) return name;
     return `${type}-${name}`;
 }
@@ -576,7 +599,7 @@ Hooks.once('init', async () => {
                 const entry = this.documents.find(d => d.id === id);
                 //const entry = this.collection.get(li.data("entryId")); // works only on V11+
                 if (!entry) return;
-                exportMarkdown(entry, zipfilename(entry.name, entry.constructor.name));
+                exportMarkdown(entry, ziprawfilename(entry.name, entry.constructor.name));
             },
         });
     }
@@ -589,7 +612,7 @@ Hooks.once('init', async () => {
             condition: li => game.user.isGM,
             callback: async li => {
                 const pack = game.packs.get(li.data("pack"));
-                exportMarkdown(pack, zipfilename(pack.title, pack.metadata.type));
+                exportMarkdown(pack, ziprawfilename(pack.title, pack.metadata.type));
             },
         });
     }
@@ -606,7 +629,7 @@ Hooks.once('init', async () => {
                 // li.dataset.uuid does not exist in Foundry V10
                 const folder = await fromUuid(`Folder.${li.dataset.folderId}`);
                 if (!folder) return;
-                exportMarkdown(folder, zipfilename(folder.name, folder.type));
+                exportMarkdown(folder, ziprawfilename(folder.name, folder.type));
             },
         });
     }
@@ -623,7 +646,7 @@ Hooks.on("renderSidebarTab", async (app, html) => {
         let button = $(`<button style="flex: 0" title="${help}"><i class='fas fa-file-zip'></i>${label}</button>`)
         button.click((event) => {
             event.preventDefault();
-            exportMarkdown(app, zipfilename(app.constructor.name));
+            exportMarkdown(app, ziprawfilename(app.constructor.name));
         });
 
         html.append(button);
@@ -654,6 +677,24 @@ Hooks.once('init', () => {
     game.settings.register(MODULE_NAME, OPTION_LEAFLET, {
 		name: "Format Scenes for Leaflet plugin",
 		hint: "Create Notes in a format suitable for use with Obsidian's Leaflet plugin",
+		scope: "world",
+		type:  Boolean,
+		default: true,
+		config: true,
+	});
+
+    game.settings.register(MODULE_NAME, OPTION_FOLDER_AS_UUID, {
+		name: "JournalEntry folders use UUID instead of Journal name",
+		hint: "When checked, Journals will be placed into a folder based on the UUID of the JournalEntry (if unchecked, the folder will be the Journal's name, but links to that journal will not work)",
+		scope: "world",
+		type:  Boolean,
+		default: true,
+		config: true,
+	});
+
+    game.settings.register(MODULE_NAME, OPTION_NOTENAME_IS_UUID, {
+		name: "Use UUID of each document as the Note name",
+		hint: "When checked, the created notes will have a name that matches the UUID of the document allowing for easy unique linking from other documents (when unchecked, the notes will use the name of the document, which might not be unique for linking purposes)",
 		scope: "world",
 		type:  Boolean,
 		default: true,
