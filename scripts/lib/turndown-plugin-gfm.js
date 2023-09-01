@@ -116,7 +116,7 @@ export var TurndownPluginGfmService = (function (exports) {
     if (index === 0) prefix = '| ';
     // Ensure single line per cell (both windows and unix EoL)
     // TODO: allow gfm non-strict mode to replace new lines by `<br/>`
-    content = content.replace(/\r\n/g, '\n').replace(/\n/g, ' ');
+    content = content.replace(/\r\n/g, '\n').trim().replace(/\n *\n/g,'<br/>').replace(/\n/g, ' ');
     // | must be escaped as \|
     content = content.replace(/\|/g, '\\|');
     return prefix + content + ' |'
