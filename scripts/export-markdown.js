@@ -555,7 +555,7 @@ export async function exportMarkdown(from, zipname) {
         if (from.type === "Compendium")
             await onePackFolder(TOP_PATH, from);
         else
-            oneFolder(TOP_PATH, from);
+            await oneFolder(TOP_PATH, from);
     }
     else if (is_v10 ? from instanceof SidebarDirectory : from instanceof DocumentDirectory) {
         for (const doc of from.documents) {

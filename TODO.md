@@ -2,9 +2,7 @@
 
 ## ACTORS and ITEMS
 
-A page showing the `JSON.stringify(json, null, 2)` (see exportToJSON)
-
-Or use a user-provided handlebars template for the note
+Let user specify a handlebars template for the Actors and Items, with specific versions for each type of Actor/Item.
 
 ## SCENE
 
@@ -13,10 +11,6 @@ Convert to whatever Obsidian has as a map plugin:
 - tokens?
 - tiles?  (imageOverlay)
 - drawings
-
-## PLAYLIST
-
-Simply store the file as a binary file
 
 ## CHAT LIST
 
