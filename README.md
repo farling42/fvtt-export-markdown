@@ -22,6 +22,32 @@ The contents of the downloaded ZIP can then be exported into your Obsidian Vault
 
 Links to non-journal entries will be converted to Markdown-format links (which will obviously point to non-existent pages).
 
+## Options
+
+### Format for non-decoded data
+
+You can select either YAML or JSON for notes created from Actors and Items, to specify the format in which the data should be displayed within the note.
+
+### Format Scenes for Leaflet plugin
+
+All scenes will be converted to use the syntax required for Obsidian's "Leaflet" plugin.
+
+### JournalEntry folders use UUID instead of Journal name
+
+When not checked, folders will use the journal entry's name; when checked, folders will use the journal entry's UUID.
+
+(Note that Obsidian's "AidenLX's Folder Note" plugin will show the journal's title in the note explorer.)
+
+*Using UUID allows for easier (and more unique) linking of links between documents.*
+
+### Use UUID of each document as the Note name
+
+With this option checked, all documents will be stored in a file whose name is Foundry's UUID. (Obsidian's "Front Matter Title" plugin will show the document's title in Obsidian's note explorer panel)
+
+With this option unchecked, all documents will be stored in a file whose name is the Document's name.
+
+*Using UUID allows for easier (and more unique) linking of links between documents.*
+
 ## Installation
 
 The module can be installed directly from your Foundry server's module management page.
