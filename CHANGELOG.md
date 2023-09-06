@@ -11,6 +11,7 @@
 - Remove warning generated when exporting the chat log.
 - Line breaks in table cells should be honoured.
 - Put Foundry document type into the tags part of the frontmatter (e.g. Actor, Item, JournalEntry, JournalEntryPage)
+- use string-replace-async library to convert links that might point to compendium entries.
 
 ## 0.9.1
 

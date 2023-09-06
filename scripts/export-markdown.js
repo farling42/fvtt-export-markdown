@@ -2,6 +2,7 @@ import "./lib/jszip.min.js";
 import { TurndownService } from "./lib/turndown.js";
 import { TurndownPluginGfmService } from "./lib/turndown-plugin-gfm.js";
 import "./lib/js-yaml.min.js";
+import replaceAsync from "./lib/string-replace-async.js";
 
 const MODULE_NAME = "export-markdown";
 const FRONTMATTER = "---\n";
@@ -151,10 +152,10 @@ function notefilename(doc) {
 
 let turndownService, gfm;
 
-function convertLinks(markdown, relativeTo) {
+async function convertLinks(markdown, relativeTo) {
 
     // Needs to be nested so that we have access to 'relativeTo'
-    function replaceOneLink(str, type, target, hash, label, offset, string, groups) {
+    async function replaceOneLink(str, type, target, hash, label, offset, string, groups) {
 
         // One of my Foundry Modules introduced adding "inline" to the start of type.
         let inline = type.startsWith("inline");
@@ -175,7 +176,7 @@ function convertLinks(markdown, relativeTo) {
 
         let linkdoc;
         try {
-            linkdoc = fromUuidSync(target, {relative: relativeTo});
+            linkdoc = await fromUuid(target, {relative: relativeTo});
             if (!label && !hash) label = doc.name;
         } catch (error) {
             console.debug(`Unable to fetch label from Compendium for ${target}`, error)
@@ -202,7 +203,7 @@ function convertLinks(markdown, relativeTo) {
     
     // Convert all the links
     const pattern = /@([A-Za-z]+)\[([^#\]]+)(?:#([^\]]+))?](?:{([^}]+)})?/g;
-    markdown = markdown.replaceAll(pattern, replaceOneLink);
+    markdown = await replaceAsync(markdown, pattern, replaceOneLink);
     
     // Replace file references (TBD AFTER HTML conversion)
     const filepattern = /!\[\]\(([^)]*)\)/g;
@@ -211,11 +212,11 @@ function convertLinks(markdown, relativeTo) {
     return markdown;
 }
 
-function convertHtml(doc, html) {
+async function convertHtml(doc, html) {
     // Foundry uses "showdown" rather than "turndown":
     /*{
         let mark = JournalTextPageSheet._converter.makeMarkdown(html);
-        return convertLinks(mark, doc).replaceAll("\\[\\[","[[").replaceAll("\\]\\]","]]");
+        return await convertLinks(mark, doc).replaceAll("\\[\\[","[[").replaceAll("\\]\\]","]]");
         // SHOWDOWN fails to parse tables at all
     }*/
 
@@ -234,7 +235,7 @@ function convertHtml(doc, html) {
     try {
         // Convert links BEFORE doing HTML->MARKDOWN (to get links inside tables working properly)
         // The conversion "escapes" the "[[...]]" markers, so we have to remove those markers afterwards
-        markdown = turndownService.turndown(convertLinks(html, doc)).replaceAll("\\[\\[","[[").replaceAll("\\]\\]","]]");
+        markdown = turndownService.turndown((await convertLinks(html, doc))).replaceAll("\\[\\[","[[").replaceAll("\\]\\]","]]");
         // Now convert file references
         const filepattern = /!\[\]\(([^)]*)\)/g;
         markdown = markdown.replaceAll(filepattern, replaceLinkedFile);    
@@ -242,7 +243,7 @@ function convertHtml(doc, html) {
         console.warn(`Error: failed to decode html:`, html)
     }
 
-    //markdown = convertLinks(markdown, doc);
+    //markdown = await convertLinks(markdown, doc);
 
     return markdown;
 }
@@ -260,7 +261,7 @@ function frontmatter(doc, showheader=true) {
 }
 
 
-function oneJournal(path, journal) {
+async function oneJournal(path, journal) {
     let subpath = path;
     if (journal.pages.size > 1) {
         // Put all the notes in a sub-folder
@@ -281,7 +282,7 @@ function oneJournal(path, journal) {
             case "text":
                 switch (page.text.format) {
                     case 1: // HTML
-                        markdown = convertHtml(page, page.text.content);
+                        markdown = await convertHtml(page, page.text.content);
                         break;
                     case 2: // MARKDOWN
                         markdown = page.text.markdown;
@@ -300,7 +301,7 @@ function oneJournal(path, journal) {
     }
 }
 
-function oneRollTable(path, table) {
+async function oneRollTable(path, table) {
     let markdown = frontmatter(table);
     
     if (table.description) markdown += table.description + "\n\n";
@@ -312,7 +313,7 @@ function oneRollTable(path, table) {
     for (const tableresult of table.results) {
         const range  = (tableresult.range[0] == tableresult.range[1]) ? tableresult.range[0] : `${tableresult.range[0]}-${tableresult.range[1]}`;
         // Escape the "|" in any links
-        markdown += `| ${range} | ${convertLinks(tableresult.getChatText(), table).replaceAll("|","\\|")} |\n`;
+        markdown += `| ${range} | ${(await convertLinks(tableresult.getChatText(), table)).replaceAll("|","\\|")} |\n`;
     }
 
     // No path for tables
@@ -423,7 +424,7 @@ function onePlaylist(path, playlist) {
     zip.folder(path).file(zipfilename(playlist), markdown, { binary: false });
 }
 
-function documentToJSON(path, doc) {
+async function documentToJSON(path, doc) {
     // see Foundry exportToJSON
 
     const data = doc.toCompendium(null);
@@ -441,7 +442,7 @@ function documentToJSON(path, doc) {
     ]
     for (const field of DESCRIPTIONS) {
         let text = foundry.utils.getProperty(doc, field);
-        if (text) markdown += convertHtml(doc, text) + EOL + EOL;
+        if (text) markdown += await convertHtml(doc, text) + EOL + EOL;
     }
 
     let datastring;
@@ -455,7 +456,7 @@ function documentToJSON(path, doc) {
     // TODO: maybe extract Items as separate notes?
 
     // Convert LINKS: Foundry syntax to Markdown syntax
-    datastring = convertLinks(datastring, doc);
+    datastring = await convertLinks(datastring, doc);
 
     markdown +=
         MARKER + doc.documentName + EOL + 
@@ -465,17 +466,17 @@ function documentToJSON(path, doc) {
     zip.folder(path).file(zipfilename(doc), markdown, { binary: false });
 }
 
-function oneDocument(path, doc) {
+async function oneDocument(path, doc) {
     if (doc instanceof JournalEntry)
-        oneJournal(path, doc);
+        await oneJournal(path, doc);
     else if (doc instanceof RollTable)
-        oneRollTable(path, doc);
+        await oneRollTable(path, doc);
     else if (doc instanceof Scene && game.settings.get(MODULE_NAME, OPTION_LEAFLET))
-        oneScene(path, doc);
+        await oneScene(path, doc);
     else if (doc instanceof Playlist)
-        onePlaylist(path, doc);
+        await onePlaylist(path, doc);
     else
-        documentToJSON(path, doc);
+        await documentToJSON(path, doc);
     // Actor
     // Cards
     // ChatMessage
@@ -489,7 +490,7 @@ async function oneChatMessage(path, message) {
     if (!html?.length) return message.export();
 
     return `## ${new Date(message.timestamp).toLocaleString()}\n\n` + 
-        convertHtml(message, html[0].outerHTML);
+        await convertHtml(message, html[0].outerHTML);
 }
 
 async function oneChatLog(path, chatlog) {
@@ -506,13 +507,13 @@ async function oneChatLog(path, chatlog) {
     zip.folder(path).file(filename, log, { binary: false });
 }
 
-function oneFolder(path, folder) {
+async function oneFolder(path, folder) {
     let subpath = formpath(path, validFilename(folder.name));
     for (const journal of folder.contents) {
-        oneDocument(subpath, journal);
+        await oneDocument(subpath, journal);
     }
     for (const childfolder of folder.getSubfolders(/*recursive*/false)) {
-        oneFolder(subpath, childfolder);
+        await oneFolder(subpath, childfolder);
     }
 }
 
@@ -522,7 +523,7 @@ async function onePack(path, pack) {
     let subpath = formpath(path, validFilename(pack.title));
     const documents = await pack.getDocuments();
     for (const doc of documents) {
-        oneDocument(subpath, doc);
+        await oneDocument(subpath, doc);
     }
 }
 
@@ -558,7 +559,7 @@ export async function exportMarkdown(from, zipname) {
     }
     else if (is_v10 ? from instanceof SidebarDirectory : from instanceof DocumentDirectory) {
         for (const doc of from.documents) {
-            oneDocument(folderpath(doc), doc);
+            await oneDocument(folderpath(doc), doc);
         }
     } else if (from instanceof CompendiumDirectory) {
         // from.collection does not exist in V10
@@ -607,8 +608,7 @@ Hooks.once('init', async () => {
                 const id = li.data(is_v10 ? "documentId" : "entryId");
                 const entry = this.documents.find(d => d.id === id);
                 //const entry = this.collection.get(li.data("entryId")); // works only on V11+
-                if (!entry) return;
-                exportMarkdown(entry, ziprawfilename(entry.name, entry.constructor.name));
+                if (entry) exportMarkdown(entry, ziprawfilename(entry.name, entry.constructor.name));
             },
         });
     }
@@ -621,7 +621,7 @@ Hooks.once('init', async () => {
             condition: li => game.user.isGM,
             callback: async li => {
                 const pack = game.packs.get(li.data("pack"));
-                exportMarkdown(pack, ziprawfilename(pack.title, pack.metadata.type));
+                if (pack) exportMarkdown(pack, ziprawfilename(pack.title, pack.metadata.type));
             },
         });
     }
@@ -637,8 +637,7 @@ Hooks.once('init', async () => {
                 const li = header.closest(".directory-item")[0];
                 // li.dataset.uuid does not exist in Foundry V10
                 const folder = await fromUuid(`Folder.${li.dataset.folderId}`);
-                if (!folder) return;
-                exportMarkdown(folder, ziprawfilename(folder.name, folder.type));
+                if (folder) exportMarkdown(folder, ziprawfilename(folder.name, folder.type));
             },
         });
     }
