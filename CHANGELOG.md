@@ -1,5 +1,13 @@
 # CHANGELOG
 
+## 0.11.0
+
+- Allow a Handlebars template to be specified for each type of Actor and Item.
+- The "img" of each Actor and Item will always be uploaded, in case it is referenced from the generated Markdown.
+- The handlebars template file should specify the full contents of the generated markdown file (including the frontmatter, if required).
+- Note that the markdown template files should be uploaded into your Foundry storage using the ".md" extension.
+- See https://foundryvtt.com/api/classes/client.HandlebarsHelpers.html for the Foundry-supplied helpers available, although that page is missing the comparison helpers (eq, ne, lt, gt, lte, gte, not, and, or).
+
 ## 0.10.0
 
 - All filenames are now the Foundry UUID, in order to see document titles in the sidebar Explorer Obsidian's "Front Matter Title" plugin should be used.

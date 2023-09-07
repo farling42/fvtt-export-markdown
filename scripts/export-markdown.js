@@ -3,6 +3,8 @@ import { TurndownService } from "./lib/turndown.js";
 import { TurndownPluginGfmService } from "./lib/turndown-plugin-gfm.js";
 import "./lib/js-yaml.min.js";
 import replaceAsync from "./lib/string-replace-async.js";
+import * as MOD_CONFIG from "./config.js";
+import { myRenderTemplate, clearTemplateCache } from "./render-template.js"
 
 const MODULE_NAME = "export-markdown";
 const FRONTMATTER = "---\n";
@@ -13,10 +15,7 @@ const destForImages = "zz_asset-files";
 
 let zip;
 
-const OPTION_DUMP = "dataType";
-const OPTION_LEAFLET = "leaflet";
-const OPTION_FOLDER_AS_UUID = "folderIsUuid";
-const OPTION_NOTENAME_IS_UUID = "notenameIsUuid";
+
 
 const IMG_SIZE = "150";
 
@@ -66,6 +65,13 @@ function zipfilename(doc) {
 
 function formpath(dir,file) {
     return dir ? (dir + "/" + file) : file;
+}
+
+function templateFile(doc) {
+    // Look for a specific template, otherwise use the generic template
+    let base = (doc instanceof Actor) ? "Actor" : (doc instanceof Item) ? "Item" : undefined;
+    if (!base) return undefined;
+    return game.settings.get(MODULE_NAME, `template.${base}.${doc.type}`) || game.settings.get(MODULE_NAME, `template.${base}`);
 }
 
 /**
@@ -440,7 +446,7 @@ async function documentToJSON(path, doc) {
     }
 
     let datastring;
-    let dumpoption = game.settings.get(MODULE_NAME, OPTION_DUMP);
+    let dumpoption = game.settings.get(MOD_CONFIG.MODULE_NAME, MOD_CONFIG.OPTION_DUMP);
     if (dumpoption === "YAML")
         datastring = jsyaml.dump(data);
     else if (dumpoption === "JSON")
@@ -460,17 +466,36 @@ async function documentToJSON(path, doc) {
     zip.folder(path).file(zipfilename(doc), markdown, { binary: false });
 }
 
+async function maybeTemplate(path, doc) {
+    const templatePath = templateFile(doc);
+    if (!templatePath) return documentToJSON(path, doc);
+    console.log(`Using handlebars template '${templatePath}' for '${doc.name}'`)
+
+    // Always upload the IMG, if present, but we won't include the corresponding markdown
+    if (doc.img) fileconvert(doc.img, IMG_SIZE);
+
+    // Apply the supplied template file:
+    // Foundry renderTemplate only supports templates with file extensions: html, handlebars, hbs
+    // Foundry filePicker hides all files with extension html, handlebars, hbs
+    const markdown = await myRenderTemplate(templatePath, doc).catch(err => {
+        ui.notifications.warn(`Handlers Error: ${err.message}`);
+        throw err;
+    })
+
+    zip.folder(path).file(zipfilename(doc), markdown, { binary: false });
+}
+
 async function oneDocument(path, doc) {
     if (doc instanceof JournalEntry)
         await oneJournal(path, doc);
     else if (doc instanceof RollTable)
         await oneRollTable(path, doc);
-    else if (doc instanceof Scene && game.settings.get(MODULE_NAME, OPTION_LEAFLET))
+    else if (doc instanceof Scene && game.settings.get(MOD_CONFIG.MODULE_NAME, MOD_CONFIG.OPTION_LEAFLET))
         await oneScene(path, doc);
     else if (doc instanceof Playlist)
         await onePlaylist(path, doc);
     else
-        await documentToJSON(path, doc);
+        await maybeTemplate(path, doc);
     // Actor
     // Cards
     // ChatMessage
@@ -532,8 +557,10 @@ let is_v10=false
 
 export async function exportMarkdown(from, zipname) {
 
-    use_uuid_for_journal_folder = game.settings.get(MODULE_NAME, OPTION_FOLDER_AS_UUID);
-    use_uuid_for_notename       = game.settings.get(MODULE_NAME, OPTION_NOTENAME_IS_UUID);
+    clearTemplateCache();
+
+    use_uuid_for_journal_folder = game.settings.get(MOD_CONFIG.MODULE_NAME, MOD_CONFIG.OPTION_FOLDER_AS_UUID);
+    use_uuid_for_notename       = game.settings.get(MOD_CONFIG.MODULE_NAME, MOD_CONFIG.OPTION_NOTENAME_IS_UUID);
 
     let noteid = ui.notifications.info(`${MODULE_NAME}.ProgressNotification`, {permanent: true, localize: true})
     // Wait for the notification to get drawn
@@ -655,51 +682,4 @@ Hooks.on("renderSidebarTab", async (app, html) => {
     } else {
         console.debug(`Export-Markdown | Not adding button to sidebar`, app)
     }
-})
-
-
-/*
- * MODULE OPTIONS
- */
-
-Hooks.once('init', () => {
-    game.settings.register(MODULE_NAME, OPTION_DUMP, {
-		name: "Format for non-decoded data",
-		hint: "For document types not otherwise decoded, use this format for the data dump.",
-		scope: "world",
-		type:  String,
-		choices: { 
-            "YAML": "YAML",
-            "JSON": "JSON"
-        },
-		default: "YAML",
-		config: true,
-	});
-
-    game.settings.register(MODULE_NAME, OPTION_LEAFLET, {
-		name: "Format Scenes for Leaflet plugin",
-		hint: "Create Notes in a format suitable for use with Obsidian's Leaflet plugin",
-		scope: "world",
-		type:  Boolean,
-		default: true,
-		config: true,
-	});
-
-    game.settings.register(MODULE_NAME, OPTION_FOLDER_AS_UUID, {
-		name: "JournalEntry folders use UUID instead of Journal name",
-		hint: "When checked, Journals will be placed into a folder based on the UUID of the JournalEntry (if unchecked, the folder will be the Journal's name, but links to that journal will not work)",
-		scope: "world",
-		type:  Boolean,
-		default: true,
-		config: true,
-	});
-
-    game.settings.register(MODULE_NAME, OPTION_NOTENAME_IS_UUID, {
-		name: "Use UUID of each document as the Note name",
-		hint: "When checked, the created notes will have a name that matches the UUID of the document allowing for easy unique linking from other documents (when unchecked, the notes will use the name of the document, which might not be unique for linking purposes)",
-		scope: "world",
-		type:  Boolean,
-		default: true,
-		config: true,
-	});
 })

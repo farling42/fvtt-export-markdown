@@ -2,6 +2,12 @@
     "export-markdown": {
         "exportToMarkdown": "Export to Markdown",
         "exportToMarkdownTooltip": "Export the contents to Markdown notes",
-        "ProgressNotification": "Generating Markdown ZIP file"
+        "ProgressNotification": "Generating Markdown ZIP file",
+        "titleActorTemplates": "Handlebars Template for Actors",
+        "actorTemplate.Name": "Actor: '{name}'",
+        "actorTemplate.Hint": "Specify the handlebars template file to be used when creating Notes for '{name}' Actors",
+        "titleItemTemplates": "Handlebars Template for Items",
+        "itemTemplate.Name": "Item: '{name}'",
+        "itemTemplate.Hint": "Specify the handlebars template file to be used when creating Notes for '{name}' Items"
     }
 }

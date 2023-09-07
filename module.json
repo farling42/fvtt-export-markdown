@@ -28,6 +28,7 @@
     ]
   },
   "esmodules": [
+    "scripts/module-settings.js",
     "scripts/export-markdown.js",
     "scripts/lib/turndown.js",
     "scripts/lib/turndown-plugin-gfm.js"
