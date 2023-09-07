@@ -214,11 +214,7 @@ async function convertLinks(markdown, relativeTo) {
 
 async function convertHtml(doc, html) {
     // Foundry uses "showdown" rather than "turndown":
-    /*{
-        let mark = JournalTextPageSheet._converter.makeMarkdown(html);
-        return await convertLinks(mark, doc).replaceAll("\\[\\[","[[").replaceAll("\\]\\]","]]");
-        // SHOWDOWN fails to parse tables at all
-    }*/
+    // SHOWDOWN fails to parse tables at all
 
     if (!turndownService) {
         // Setup Turndown service to use GFM for tables
@@ -242,8 +238,6 @@ async function convertHtml(doc, html) {
     } catch (error) {
         console.warn(`Error: failed to decode html:`, html)
     }
-
-    //markdown = await convertLinks(markdown, doc);
 
     return markdown;
 }
