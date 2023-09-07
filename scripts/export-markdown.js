@@ -301,7 +301,7 @@ async function oneRollTable(path, table) {
     if (table.description) markdown += table.description + "\n\n";
 
     markdown += 
-        `| ${table.formula || Roll} | result |\n` +
+        `| ${table.formula || "Roll"} | result |\n` +
         `|------|--------|\n`;
 
     for (const tableresult of table.results) {
