@@ -101,7 +101,7 @@ Hooks.on('renderSettingsConfig', (app, html, options) => {
 
     const actorModuleTab = $(app.form).find(`.tab[data-tab=${MOD_CONFIG.MODULE_NAME}]`);
     actorModuleTab
-      .find(`input[name=${MOD_CONFIG.MODULE_NAME}\\.template\\.Actor]`)
+      .find(`[name=${MOD_CONFIG.MODULE_NAME}\\.template\\.Actor]`)
       .closest('div.form-group')
       .before(
         '<h2 class="setting-header">' +
@@ -111,7 +111,7 @@ Hooks.on('renderSettingsConfig', (app, html, options) => {
 
     const itemModuleTab = $(app.form).find(`.tab[data-tab=${MOD_CONFIG.MODULE_NAME}]`);
     itemModuleTab
-      .find(`input[name=${MOD_CONFIG.MODULE_NAME}\\.template\\.Item]`)
+      .find(`[name=${MOD_CONFIG.MODULE_NAME}\\.template\\.Item]`)
       .closest('div.form-group')
       .before(
         '<h2 class="setting-header">' +
