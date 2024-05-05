@@ -5,6 +5,7 @@ import "./lib/js-yaml.min.js";
 import replaceAsync from "./lib/string-replace-async.js";
 import * as MOD_CONFIG from "./config.js";
 import { myRenderTemplate, clearTemplateCache } from "./render-template.js"
+import { registerHandlebarsHelpers } from "handlebar-helpers.js"
 
 const MODULE_NAME = "export-markdown";
 const FRONTMATTER = "---\n";
