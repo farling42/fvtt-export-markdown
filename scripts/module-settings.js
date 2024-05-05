@@ -101,11 +101,10 @@ Hooks.once('ready', () => {
                 return validFilename(name);
             });
 
-    Handlebars.registerHelper('convertHtml', async function (context, text) {
+    Handlebars.registerHelper('convertHtml', function (context, text) {
         if (text) {
-            text = await convertHtml(context, text);
+            text = convertHtml(context, text);
         }
-        console.log("text -> " + text);
         return text;
         });
 
@@ -113,6 +112,16 @@ Hooks.once('ready', () => {
     Handlebars.registerHelper('fileconvert', function (filename, label_or_size) {
             return fileconvert(filename, label_or_size);
         });
+
+    Handlebars.registerHelper('itemsOfType', function (items, type) {
+        let _itemsOfType = [];
+        for (let item of items) {
+            if(item.type === type) {
+                _itemsOfType.push(item);
+            }
+        }
+        return _itemsOfType;
+    });
 })
 // End Hook Once
 

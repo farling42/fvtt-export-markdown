@@ -158,10 +158,47 @@ function notefilename(doc) {
 
 let turndownService, gfm;
 
-async function convertLinks(markdown, relativeTo) {
+// This is function is used in pf2e-md-exporter as a part of removing async functions used in handlebar helpers.
+function uuidFailSafe(target, label) {
+    if (!use_uuid_for_notename) {
+        // Foundry's fromUuidSync() will thrown an error if the UUID 
+        // document is only available via an async operation.
+        // We can't resolve async function calls via a handlebar, so let's try another approach...
+        
+        // I discovered this function mentioned in foundry.js:
+        // let {collection, documentId, documentType, embedded, doc} = foundry.utils.parseUuid(target);
+
+        // Get the UUID parts for the target - that can always be done synchronously.
+        let uuidParts = foundry.utils.parseUuid(target);
+
+        // Using the UUID parts information from the target, get the UUID of the target's parent
+        let parentUuid = uuidParts.collection.getUuid(uuidParts.documentId);
+        
+        // Now that we have the parent's UUID, get it in document form.
+        // In testing, it appears the parent can be fetched via a synchronoous operation, which is what we need.
+        let parentDoc = fromUuidSync(parentUuid);
+
+        if (parentDoc) {
+            // Lookup the friendly name of the path, so we can use it as a prefix for the link to make it more unique.
+            let pack = game.packs.get(parentDoc.pack);
+            if (pack) {
+                // Slashes in the title aren't real paths and as part of the export become underscores
+                let fixed_title = pack.title.replaceAll('/', '_');
+                let result = `${fixed_title}/${parentDoc.name}/${label}`;
+                //console.log("Resolved URL:", result);
+                return formatLink(result, label, /*inline*/false);
+            }
+        }
+        console.log("Ooops.... we fell through.  Unresolved URL: ", target);
+    }
+    return dummyLink(target, label);
+}
+
+
+function convertLinks(markdown, relativeTo) {
 
     // Needs to be nested so that we have access to 'relativeTo'
-    async function replaceOneLink(str, type, target, hash, label, offset, string, groups) {
+    function replaceOneLink(str, type, target, hash, label, offset, string, groups) {
 
         // One of my Foundry Modules introduced adding "inline" to the start of type.
         let inline = type.startsWith("inline");
@@ -182,11 +219,11 @@ async function convertLinks(markdown, relativeTo) {
 
         let linkdoc;
         try {
-            linkdoc = await fromUuid(target, {relative: relativeTo});
+            linkdoc = fromUuidSync(target, {relative: relativeTo});
             if (!label && !hash) label = doc.name;
         } catch (error) {
-            console.debug(`Unable to fetch label from Compendium for ${target}`, error)
-            return dummyLink();
+            //console.debug(`Unable to fetch label from Compendium for ${target}`, error)
+            return uuidFailSafe(target, label);
         }
 
         if (!linkdoc) return dummyLink();
@@ -209,14 +246,14 @@ async function convertLinks(markdown, relativeTo) {
     
     // Convert all the links
     const pattern = /@([A-Za-z]+)\[([^#\]]+)(?:#([^\]]+))?](?:{([^}]+)})?/g;
-    markdown = await replaceAsync(markdown, pattern, replaceOneLink);
+    markdown = markdown.replace(pattern, replaceOneLink);
     // Replace file references (TBD AFTER HTML conversion)
     const filepattern = /!\[\]\(([^)]*)\)/g;
     markdown = markdown.replaceAll(filepattern, replaceLinkedFile);
     return markdown;
 }
 
-export async function convertHtml(doc, html) {
+export function convertHtml(doc, html) {
     // Foundry uses "showdown" rather than "turndown":
     // SHOWDOWN fails to parse tables at all
 
@@ -235,7 +272,7 @@ export async function convertHtml(doc, html) {
     try {
         // Convert links BEFORE doing HTML->MARKDOWN (to get links inside tables working properly)
         // The conversion "escapes" the "[[...]]" markers, so we have to remove those markers afterwards
-        markdown = turndownService.turndown((await convertLinks(html, doc))).replaceAll("\\[\\[","[[").replaceAll("\\]\\]","]]");
+        markdown = turndownService.turndown((convertLinks(html, doc))).replaceAll("\\[\\[","[[").replaceAll("\\]\\]","]]");
         // Now convert file references
         const filepattern = /!\[\]\(([^)]*)\)/g;
         markdown = markdown.replaceAll(filepattern, replaceLinkedFile);    
@@ -310,7 +347,7 @@ async function oneRollTable(path, table) {
     for (const tableresult of table.results) {
         const range  = (tableresult.range[0] == tableresult.range[1]) ? tableresult.range[0] : `${tableresult.range[0]}-${tableresult.range[1]}`;
         // Escape the "|" in any links
-        markdown += `| ${range} | ${(await convertLinks(tableresult.getChatText(), table)).replaceAll("|","\\|")} |\n`;
+        markdown += `| ${range} | ${(convertLinks(tableresult.getChatText(), table)).replaceAll("|","\\|")} |\n`;
     }
 
     // No path for tables
@@ -453,7 +490,7 @@ async function documentToJSON(path, doc) {
     // TODO: maybe extract Items as separate notes?
 
     // Convert LINKS: Foundry syntax to Markdown syntax
-    datastring = await convertLinks(datastring, doc);
+    datastring = convertLinks(datastring, doc);
 
     markdown +=
         MARKER + doc.documentName + EOL + 
