@@ -1,6 +1,5 @@
 import * as MOD_CONFIG from "./config.js";
-import { /*validFileName,*/ convertHtml, fileconvert } from "./export-markdown.js";
-//import { registerHandlebarsHelpers } from "./handlebar-helpers.js"
+import { registerHandlebarsHelpers } from "./handlebar-helpers.js"
 
 /*
  * MODULE OPTIONS
@@ -97,34 +96,9 @@ Hooks.once('ready', () => {
         })
     }
 
-    //registerHandlebarsHelpers();
+    // Register Handle Bar Helpers
+    registerHandlebarsHelpers();
 
-    //Handlebar Helpers
-    Handlebars.registerHelper('validFileName', function (name) {
-                return validFilename(name);
-            });
-
-    Handlebars.registerHelper('convertHtml', function (context, text) {
-        if (text) {
-            text = convertHtml(context, text);
-        }
-        return text;
-        });
-
-
-    Handlebars.registerHelper('fileconvert', function (filename, label_or_size) {
-            return fileconvert(filename, label_or_size);
-        });
-
-    Handlebars.registerHelper('itemsOfType', function (items, type) {
-        let _itemsOfType = [];
-        for (let item of items) {
-            if(item.type === type) {
-                _itemsOfType.push(item);
-            }
-        }
-        return _itemsOfType;
-    });
 })
 // End Hook Once
 

@@ -4,10 +4,12 @@ export const registerHandlebarsHelpers = function () {
     
     //Handlebar Helpers
     
+    /*  IMPORT OF THE FUNCTION BREAKS THE MODULE SETTINGS.
     // Escapes file names to make them valid
     Handlebars.registerHelper('validFileName', function (name) {
                 return validFilename(name);
             });
+            */
 
     // Convert HTML to Markdown
     Handlebars.registerHelper('convertHtml', function (context, text) {
