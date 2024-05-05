@@ -1,4 +1,5 @@
-import * as MOD_CONFIG from "./config.js"
+import * as MOD_CONFIG from "./config.js";
+import { /*validFileName,*/ convertHtml, fileconvert } from "./export-markdown.js";
 
 /*
  * MODULE OPTIONS
@@ -94,7 +95,26 @@ Hooks.once('ready', () => {
             filePicker: "text"
         })
     }
+
+    //Handlebar Helpers
+    Handlebars.registerHelper('validFileName', function (name) {
+                return validFilename(name);
+            });
+
+    Handlebars.registerHelper('convertHtml', async function (context, text) {
+        if (text) {
+            text = await convertHtml(context, text);
+        }
+        console.log("text -> " + text);
+        return text;
+        });
+
+
+    Handlebars.registerHelper('fileconvert', function (filename, label_or_size) {
+            return fileconvert(filename, label_or_size);
+        });
 })
+// End Hook Once
 
 // Add headers for the Actor and Item settings
 Hooks.on('renderSettingsConfig', (app, html, options) => {

@@ -5,7 +5,6 @@ import "./lib/js-yaml.min.js";
 import replaceAsync from "./lib/string-replace-async.js";
 import * as MOD_CONFIG from "./config.js";
 import { myRenderTemplate, clearTemplateCache } from "./render-template.js"
-import { registerHandlebarsHelpers } from "handlebar-helpers.js"
 
 const MODULE_NAME = "export-markdown";
 const FRONTMATTER = "---\n";
@@ -51,7 +50,7 @@ class DOCUMENT_ICON {
  * @param {Object} from Either a folder or a Journal, selected from the sidebar
  */
 
-function validFilename(name) {
+export function validFilename(name) {
     const regexp = /[<>:"/\\|?*]/g;
     return name.replaceAll(regexp, '_');
 }
@@ -110,7 +109,7 @@ function formatLink(link, label=null, inline=false) {
     return result;
 }
 
-function fileconvert(filename, label_or_size=null, inline=true) {
+export function fileconvert(filename, label_or_size=null, inline=true) {
     filename = decodeURIComponent(filename);
     //let basefilename = filename.slice(filename.lastIndexOf("/") + 1);
     // ensure same base filename in different paths are stored as different files,
@@ -211,15 +210,13 @@ async function convertLinks(markdown, relativeTo) {
     // Convert all the links
     const pattern = /@([A-Za-z]+)\[([^#\]]+)(?:#([^\]]+))?](?:{([^}]+)})?/g;
     markdown = await replaceAsync(markdown, pattern, replaceOneLink);
-    
     // Replace file references (TBD AFTER HTML conversion)
     const filepattern = /!\[\]\(([^)]*)\)/g;
     markdown = markdown.replaceAll(filepattern, replaceLinkedFile);
-
     return markdown;
 }
 
-async function convertHtml(doc, html) {
+export async function convertHtml(doc, html) {
     // Foundry uses "showdown" rather than "turndown":
     // SHOWDOWN fails to parse tables at all
 
@@ -245,7 +242,6 @@ async function convertHtml(doc, html) {
     } catch (error) {
         console.warn(`Error: failed to decode html:`, html)
     }
-
     return markdown;
 }
 
@@ -283,7 +279,7 @@ async function oneJournal(path, journal) {
             case "text":
                 switch (page.text.format) {
                     case 1: // HTML
-                        markdown = await convertHtml(page, page.text.content);
+                        markdown = convertHtml(page, page.text.content);
                         break;
                     case 2: // MARKDOWN
                         markdown = page.text.markdown;
@@ -443,7 +439,7 @@ async function documentToJSON(path, doc) {
     ]
     for (const field of DESCRIPTIONS) {
         let text = foundry.utils.getProperty(doc, field);
-        if (text) markdown += await convertHtml(doc, text) + EOL + EOL;
+        if (text) markdown += convertHtml(doc, text) + EOL + EOL;
     }
 
     let datastring;
@@ -510,7 +506,7 @@ async function oneChatMessage(path, message) {
     if (!html?.length) return message.export();
 
     return `## ${new Date(message.timestamp).toLocaleString()}\n\n` + 
-        await convertHtml(message, html[0].outerHTML);
+        convertHtml(message, html[0].outerHTML);
 }
 
 async function oneChatLog(path, chatlog) {
