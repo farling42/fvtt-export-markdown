@@ -57,7 +57,7 @@ Hooks.once('ready', () => {
         filePicker: "text"
     })
 
-    for (const type of game.template.Actor.types) {
+    for (const type of game.documentTypes.Actor.filter(t => t !== CONST.BASE_DOCUMENT_TYPE)) {
         const label = CONFIG.Actor.typeLabels[type];
         const actorname = game.i18n.has(label) ? game.i18n.localize(label) : type;
         game.settings.register(MOD_CONFIG.MODULE_NAME, `template.Actor.${type}`, {
@@ -82,7 +82,7 @@ Hooks.once('ready', () => {
         filePicker: "text"
     })
 
-    for (const type of game.template.Item.types) {
+    for (const type of game.documentTypes.Item.filter(t => t !== CONST.BASE_DOCUMENT_TYPE)) {
         const label = CONFIG.Item.typeLabels[type];
         const itemname = game.i18n.has(label) ? game.i18n.localize(label) : type;
         game.settings.register(MOD_CONFIG.MODULE_NAME, `template.Item.${type}`, {
@@ -107,7 +107,7 @@ Hooks.on('renderSettingsConfig', (app, html, options) => {
 
     const actorModuleTab = $(app.form).find(`.tab[data-tab=${MOD_CONFIG.MODULE_NAME}]`);
     actorModuleTab
-      .find(`input[name=${MOD_CONFIG.MODULE_NAME}\\.template\\.Actor]`)
+      .find(`[name=${MOD_CONFIG.MODULE_NAME}\\.template\\.Actor]`)
       .closest('div.form-group')
       .before(
         '<h2 class="setting-header">' +
@@ -117,7 +117,7 @@ Hooks.on('renderSettingsConfig', (app, html, options) => {
 
     const itemModuleTab = $(app.form).find(`.tab[data-tab=${MOD_CONFIG.MODULE_NAME}]`);
     itemModuleTab
-      .find(`input[name=${MOD_CONFIG.MODULE_NAME}\\.template\\.Item]`)
+      .find(`[name=${MOD_CONFIG.MODULE_NAME}\\.template\\.Item]`)
       .closest('div.form-group')
       .before(
         '<h2 class="setting-header">' +

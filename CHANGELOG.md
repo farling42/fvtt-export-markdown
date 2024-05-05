@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## 0.11.1
+
+- Switch method of detecting the system's Actors and Items to avoid a warning in Foundry V12.
+- Ensure that Actor/Item settings sections have their header appear in Foundry V12.
+
 ## 0.11.0
 
 - Allow a Handlebars template to be specified for each type of Actor and Item.
