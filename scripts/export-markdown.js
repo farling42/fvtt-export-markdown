@@ -639,7 +639,7 @@ Hooks.once('init', async () => {
         return wrapped(...args).concat({
             name: `${MODULE_NAME}.exportToMarkdown`,
             icon: '<i class="fas fa-file-zip"></i>',
-            condition: li => game.user.isGM,
+            condition: () => game.user.isGM,
             callback: async li => {
                 const pack = game.packs.get(li.data("pack"));
                 if (pack) exportMarkdown(pack, ziprawfilename(pack.title, pack.metadata.type));

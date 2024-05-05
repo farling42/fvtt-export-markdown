@@ -2,7 +2,7 @@
 // Foundry FilePicker dialog doesn't make files with those extensions pickable or uploadable
 
 // Global template cache
-_templateCache = {};
+let _templateCache = {};
 
 export function clearTemplateCache() {
     _templateCache = {};
