@@ -1,5 +1,6 @@
 import * as MOD_CONFIG from "./config.js";
 import { /*validFileName,*/ convertHtml, fileconvert } from "./export-markdown.js";
+//import { registerHandlebarsHelpers } from "./handlebar-helpers.js"
 
 /*
  * MODULE OPTIONS
@@ -95,6 +96,8 @@ Hooks.once('ready', () => {
             filePicker: "text"
         })
     }
+
+    //registerHandlebarsHelpers();
 
     //Handlebar Helpers
     Handlebars.registerHelper('validFileName', function (name) {
