@@ -576,7 +576,34 @@ async function onePack(path, pack) {
     let subpath = formpath(path, validFilename(pack.title));
     const documents = await pack.getDocuments();
     for (const doc of documents) {
-        await oneDocument(subpath, doc);
+        if (!doc.folder) {
+            await oneDocument(subpath, doc);
+        }
+    }
+    await compendiumFolders(subpath, pack.folders, documents, 1);
+}
+
+async function compendiumFolders(path, folders, docs, depth) {
+    for (const folder of folders) {
+        if (folder.depth === depth) {
+            let subpath = formpath(path, validFilename(folder.name));
+            let contents = folder.contents;
+            console.log("Conents of folder " + folder + " -> " + JSON.stringify(contents));
+            for (const item of contents) {
+                const doc = docs.find(({uuid}) => uuid === item.uuid);
+                if (doc) {
+                    await oneDocument(subpath, doc);
+                }
+            }
+            let children = folder.children;
+            if (children) {
+                let childFolders = [];
+                for (const child of children) {
+                    childFolders.push(folders.find(({uuid}) => uuid === child.folder.uuid));
+                }
+                await compendiumFolders(subpath, childFolders, docs, depth + 1);
+            }
+        }
     }
 }
 
@@ -616,21 +643,25 @@ export async function exportMarkdown(from, zipname) {
         for (const doc of from.documents) {
             await oneDocument(folderpath(doc), doc);
         }
-    } else if (from instanceof CompendiumDirectory) {
+    } 
+    else if (from instanceof CompendiumDirectory) {
         // from.collection does not exist in V10
         for (const doc of game.packs) {
             await onePack(folderpath(doc), doc);
         }
-    } else if (from instanceof CompendiumCollection) {
+    } 
+    else if (from instanceof CompendiumCollection) {
         await onePack(TOP_PATH, from);
-    } else if (from instanceof CombatTracker) {
+    } 
+    else if (from instanceof CombatTracker) {
         for (const combat of from.combats) {
             await oneDocument(TOP_PATH, combat);
         }
     }
     else if (from instanceof ChatLog) {
         await oneChatLog(from.title, from);
-    } else
+    } 
+    else
         await oneDocument(TOP_PATH, from);
 
     let blob = await zip.generateAsync({ type: "blob" });
