@@ -35,4 +35,11 @@ export const registerHandlebarsHelpers = function () {
         }
         return _itemsOfType;
     });
+
+    // Convert String to Title Case
+    Handlebars.registerHelper('toTitleCase', function (str) {
+        return str.toLowerCase().split(' ').map(function(word) {
+                return (word.charAt(0).toUpperCase() + word.slice(1));
+        }).join(' ')
+    });
 }
