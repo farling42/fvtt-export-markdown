@@ -172,21 +172,23 @@ function uuidFailSafe(target, label) {
         let uuidParts = foundry.utils.parseUuid(target);
 
         // Using the UUID parts information from the target, get the UUID of the target's parent
-        let parentUuid = uuidParts.collection.getUuid(uuidParts.documentId);
-        
-        // Now that we have the parent's UUID, get it in document form.
-        // In testing, it appears the parent can be fetched via a synchronoous operation, which is what we need.
-        let parentDoc = fromUuidSync(parentUuid);
+        if (!uuidParts.documentId.startsWith("uuid")) {
+            let parentUuid = uuidParts.collection.getUuid(uuidParts.documentId);
+            
+            // Now that we have the parent's UUID, get it in document form.
+            // In testing, it appears the parent can be fetched via a synchronoous operation, which is what we need.
+            let parentDoc = fromUuidSync(parentUuid);
 
-        if (parentDoc) {
-            // Lookup the friendly name of the path, so we can use it as a prefix for the link to make it more unique.
-            let pack = game.packs.get(parentDoc.pack);
-            if (pack) {
-                // Slashes in the title aren't real paths and as part of the export become underscores
-                let fixed_title = pack.title.replaceAll('/', '_');
-                let result = `${fixed_title}/${parentDoc.name}/${label}`;
-                //console.log("Resolved URL:", result);
-                return formatLink(result, label, /*inline*/false);
+            if (parentDoc) {
+                // Lookup the friendly name of the path, so we can use it as a prefix for the link to make it more unique.
+                let pack = game.packs.get(parentDoc.pack);
+                if (pack) {
+                    // Slashes in the title aren't real paths and as part of the export become underscores
+                    let fixed_title = pack.title.replaceAll('/', '_');
+                    let result = `${fixed_title}/${parentDoc.name}/${label}`;
+                    //console.log("Resolved URL:", result);
+                    return formatLink(result, label, /*inline*/false);
+                }
             }
         }
         console.log("Ooops.... we fell through.  Unresolved URL: ", target);
@@ -194,6 +196,10 @@ function uuidFailSafe(target, label) {
     return dummyLink(target, label);
 }
 
+function dummyLink(target, label) {
+    // Make sure that "|" in the ID don't start the label early (e.g. @PDF[whatever|page=name]{label})
+    return formatLink(target, label);
+}
 
 function convertLinks(markdown, relativeTo) {
 
@@ -204,11 +210,6 @@ function convertLinks(markdown, relativeTo) {
         let inline = type.startsWith("inline");
         if (inline) type = type.slice("inline".length);
         // Maybe handle `@PDF` links properly too
-
-        function dummyLink() {
-            // Make sure that "|" in the ID don't start the label early (e.g. @PDF[whatever|page=name]{label})
-            return formatLink(target, label);
-        }
 
         // Ignore link if it isn't one that we can parse.
         const documentTypes = new Set(CONST.DOCUMENT_LINK_TYPES.concat(["Compendium", "UUID"]));
@@ -226,7 +227,7 @@ function convertLinks(markdown, relativeTo) {
             return uuidFailSafe(target, label);
         }
 
-        if (!linkdoc) return dummyLink();
+        if (!linkdoc) return dummyLink(target, label);
         
         // A journal with only one page is put into a Note using the name of the Journal, not the only Page.
         let filename = notefilename(linkdoc);
@@ -503,7 +504,7 @@ async function documentToJSON(path, doc) {
 async function maybeTemplate(path, doc) {
     const templatePath = templateFile(doc);
     if (!templatePath) return documentToJSON(path, doc);
-    console.log(`Using handlebars template '${templatePath}' for '${doc.name}'`)
+    // console.log(`Using handlebars template '${templatePath}' for '${doc.name}'`)
 
     // Always upload the IMG, if present, but we won't include the corresponding markdown
     if (doc.img) fileconvert(doc.img, IMG_SIZE);
@@ -585,10 +586,11 @@ async function onePack(path, pack) {
 
 async function compendiumFolders(path, folders, docs, depth) {
     for (const folder of folders) {
-        if (folder.depth === depth) {
+        // console.log(JSON.stringify(folder));
+        if (folder instanceof Folder && typeof(folder.depth) != "undefined" && folder.depth === depth) {
+            // console.log(folder.name + " Depth -> " + folder.depth);
             let subpath = formpath(path, validFilename(folder.name));
             let contents = folder.contents;
-            console.log("Conents of folder " + folder + " -> " + JSON.stringify(contents));
             for (const item of contents) {
                 const doc = docs.find(({uuid}) => uuid === item.uuid);
                 if (doc) {
@@ -599,7 +601,7 @@ async function compendiumFolders(path, folders, docs, depth) {
             if (children) {
                 let childFolders = [];
                 for (const child of children) {
-                    childFolders.push(folders.find(({uuid}) => uuid === child.folder.uuid));
+                    childFolders.push(child.folder);
                 }
                 await compendiumFolders(subpath, childFolders, docs, depth + 1);
             }
