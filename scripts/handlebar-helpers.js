@@ -5,8 +5,8 @@ export const registerHandlebarsHelpers = function () {
     //Handlebar Helpers
     
     // Escapes file names to make them valid
-    Handlebars.registerHelper('EMDvalidFileName', function (name) {
-                return validFilename(name);
+    Handlebars.registerHelper('EMDvalidFilename', function (name) {
+        return validFilename(name);
     });
 
     // Convert HTML to Markdown
