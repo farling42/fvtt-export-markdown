@@ -50,7 +50,7 @@ class DOCUMENT_ICON {
  * @param {Object} from Either a folder or a Journal, selected from the sidebar
  */
 
-function validFilename(name) {
+export function validFilename(name) {
     const regexp = /[<>:"/\\|?*]/g;
     return name.replaceAll(regexp, '_');
 }
@@ -109,7 +109,7 @@ function formatLink(link, label=null, inline=false) {
     return result;
 }
 
-function fileconvert(filename, label_or_size=null, inline=true) {
+export function fileconvert(filename, label_or_size=null, inline=true) {
     filename = decodeURIComponent(filename);
     //let basefilename = filename.slice(filename.lastIndexOf("/") + 1);
     // ensure same base filename in different paths are stored as different files,
@@ -158,20 +158,58 @@ function notefilename(doc) {
 
 let turndownService, gfm;
 
-async function convertLinks(markdown, relativeTo) {
+// This is function is used in pf2e-md-exporter as a part of removing async functions used in handlebar helpers.
+function uuidFailSafe(target, label) {
+    if (!use_uuid_for_notename) {
+        // Foundry's fromUuidSync() will thrown an error if the UUID 
+        // document is only available via an async operation.
+        // We can't resolve async function calls via a handlebar, so let's try another approach...
+        
+        // I discovered this function mentioned in foundry.js:
+        // let {collection, documentId, documentType, embedded, doc} = foundry.utils.parseUuid(target);
+
+        // Get the UUID parts for the target - that can always be done synchronously.
+        let uuidParts = foundry.utils.parseUuid(target);
+
+        // Using the UUID parts information from the target, get the UUID of the target's parent
+        if (!uuidParts.documentId.startsWith("uuid")) {
+            let parentUuid = uuidParts.collection.getUuid(uuidParts.documentId);
+            
+            // Now that we have the parent's UUID, get it in document form.
+            // In testing, it appears the parent can be fetched via a synchronoous operation, which is what we need.
+            let parentDoc = fromUuidSync(parentUuid);
+
+            if (parentDoc) {
+                // Lookup the friendly name of the path, so we can use it as a prefix for the link to make it more unique.
+                let pack = game.packs.get(parentDoc.pack);
+                if (pack) {
+                    // Slashes in the title aren't real paths and as part of the export become underscores
+                    let fixed_title = pack.title.replaceAll('/', '_');
+                    let result = `${fixed_title}/${parentDoc.name}/${label}`;
+                    //console.log("Resolved URL:", result);
+                    return formatLink(result, label, /*inline*/false);
+                }
+            }
+        }
+        console.log("Ooops.... we fell through.  Unresolved URL: ", target);
+    }
+    return dummyLink(target, label);
+}
+
+function dummyLink(target, label) {
+    // Make sure that "|" in the ID don't start the label early (e.g. @PDF[whatever|page=name]{label})
+    return formatLink(target, label);
+}
+
+function convertLinks(markdown, relativeTo) {
 
     // Needs to be nested so that we have access to 'relativeTo'
-    async function replaceOneLink(str, type, target, hash, label, offset, string, groups) {
+    function replaceOneLink(str, type, target, hash, label, offset, string, groups) {
 
         // One of my Foundry Modules introduced adding "inline" to the start of type.
         let inline = type.startsWith("inline");
         if (inline) type = type.slice("inline".length);
         // Maybe handle `@PDF` links properly too
-
-        function dummyLink() {
-            // Make sure that "|" in the ID don't start the label early (e.g. @PDF[whatever|page=name]{label})
-            return formatLink(target, label);
-        }
 
         // Ignore link if it isn't one that we can parse.
         const documentTypes = new Set(CONST.DOCUMENT_LINK_TYPES.concat(["Compendium", "UUID"]));
@@ -182,14 +220,14 @@ async function convertLinks(markdown, relativeTo) {
 
         let linkdoc;
         try {
-            linkdoc = await fromUuid(target, {relative: relativeTo});
+            linkdoc = fromUuidSync(target, {relative: relativeTo});
             if (!label && !hash) label = doc.name;
         } catch (error) {
-            console.debug(`Unable to fetch label from Compendium for ${target}`, error)
-            return dummyLink();
+            //console.debug(`Unable to fetch label from Compendium for ${target}`, error)
+            return uuidFailSafe(target, label);
         }
 
-        if (!linkdoc) return dummyLink();
+        if (!linkdoc) return dummyLink(target, label);
         
         // A journal with only one page is put into a Note using the name of the Journal, not the only Page.
         let filename = notefilename(linkdoc);
@@ -209,16 +247,14 @@ async function convertLinks(markdown, relativeTo) {
     
     // Convert all the links
     const pattern = /@([A-Za-z]+)\[([^#\]]+)(?:#([^\]]+))?](?:{([^}]+)})?/g;
-    markdown = await replaceAsync(markdown, pattern, replaceOneLink);
-    
+    markdown = markdown.replace(pattern, replaceOneLink);
     // Replace file references (TBD AFTER HTML conversion)
     const filepattern = /!\[\]\(([^)]*)\)/g;
     markdown = markdown.replaceAll(filepattern, replaceLinkedFile);
-
     return markdown;
 }
 
-async function convertHtml(doc, html) {
+export function convertHtml(doc, html) {
     // Foundry uses "showdown" rather than "turndown":
     // SHOWDOWN fails to parse tables at all
 
@@ -237,14 +273,13 @@ async function convertHtml(doc, html) {
     try {
         // Convert links BEFORE doing HTML->MARKDOWN (to get links inside tables working properly)
         // The conversion "escapes" the "[[...]]" markers, so we have to remove those markers afterwards
-        markdown = turndownService.turndown((await convertLinks(html, doc))).replaceAll("\\[\\[","[[").replaceAll("\\]\\]","]]");
+        markdown = turndownService.turndown((convertLinks(html, doc))).replaceAll("\\[\\[","[[").replaceAll("\\]\\]","]]");
         // Now convert file references
         const filepattern = /!\[\]\(([^)]*)\)/g;
         markdown = markdown.replaceAll(filepattern, replaceLinkedFile);    
     } catch (error) {
         console.warn(`Error: failed to decode html:`, html)
     }
-
     return markdown;
 }
 
@@ -282,7 +317,7 @@ async function oneJournal(path, journal) {
             case "text":
                 switch (page.text.format) {
                     case 1: // HTML
-                        markdown = await convertHtml(page, page.text.content);
+                        markdown = convertHtml(page, page.text.content);
                         break;
                     case 2: // MARKDOWN
                         markdown = page.text.markdown;
@@ -313,7 +348,7 @@ async function oneRollTable(path, table) {
     for (const tableresult of table.results) {
         const range  = (tableresult.range[0] == tableresult.range[1]) ? tableresult.range[0] : `${tableresult.range[0]}-${tableresult.range[1]}`;
         // Escape the "|" in any links
-        markdown += `| ${range} | ${(await convertLinks(tableresult.getChatText(), table)).replaceAll("|","\\|")} |\n`;
+        markdown += `| ${range} | ${(convertLinks(tableresult.getChatText(), table)).replaceAll("|","\\|")} |\n`;
     }
 
     // No path for tables
@@ -442,7 +477,7 @@ async function documentToJSON(path, doc) {
     ]
     for (const field of DESCRIPTIONS) {
         let text = foundry.utils.getProperty(doc, field);
-        if (text) markdown += await convertHtml(doc, text) + EOL + EOL;
+        if (text) markdown += convertHtml(doc, text) + EOL + EOL;
     }
 
     let datastring;
@@ -456,7 +491,7 @@ async function documentToJSON(path, doc) {
     // TODO: maybe extract Items as separate notes?
 
     // Convert LINKS: Foundry syntax to Markdown syntax
-    datastring = await convertLinks(datastring, doc);
+    datastring = convertLinks(datastring, doc);
 
     markdown +=
         MARKER + doc.documentName + EOL + 
@@ -469,7 +504,7 @@ async function documentToJSON(path, doc) {
 async function maybeTemplate(path, doc) {
     const templatePath = templateFile(doc);
     if (!templatePath) return documentToJSON(path, doc);
-    console.log(`Using handlebars template '${templatePath}' for '${doc.name}'`)
+    // console.log(`Using handlebars template '${templatePath}' for '${doc.name}'`)
 
     // Always upload the IMG, if present, but we won't include the corresponding markdown
     if (doc.img) fileconvert(doc.img, IMG_SIZE);
@@ -509,7 +544,7 @@ async function oneChatMessage(path, message) {
     if (!html?.length) return message.export();
 
     return `## ${new Date(message.timestamp).toLocaleString()}\n\n` + 
-        await convertHtml(message, html[0].outerHTML);
+        convertHtml(message, html[0].outerHTML);
 }
 
 async function oneChatLog(path, chatlog) {
@@ -542,7 +577,35 @@ async function onePack(path, pack) {
     let subpath = formpath(path, validFilename(pack.title));
     const documents = await pack.getDocuments();
     for (const doc of documents) {
-        await oneDocument(subpath, doc);
+        if (!doc.folder) {
+            await oneDocument(subpath, doc);
+        }
+    }
+    await compendiumFolders(subpath, pack.folders, documents, 1);
+}
+
+async function compendiumFolders(path, folders, docs, depth) {
+    for (const folder of folders) {
+        // console.log(JSON.stringify(folder));
+        if (folder instanceof Folder && typeof(folder.depth) != "undefined" && folder.depth === depth) {
+            // console.log(folder.name + " Depth -> " + folder.depth);
+            let subpath = formpath(path, validFilename(folder.name));
+            let contents = folder.contents;
+            for (const item of contents) {
+                const doc = docs.find(({uuid}) => uuid === item.uuid);
+                if (doc) {
+                    await oneDocument(subpath, doc);
+                }
+            }
+            let children = folder.children;
+            if (children) {
+                let childFolders = [];
+                for (const child of children) {
+                    childFolders.push(child.folder);
+                }
+                await compendiumFolders(subpath, childFolders, docs, depth + 1);
+            }
+        }
     }
 }
 
@@ -582,21 +645,25 @@ export async function exportMarkdown(from, zipname) {
         for (const doc of from.documents) {
             await oneDocument(folderpath(doc), doc);
         }
-    } else if (from instanceof CompendiumDirectory) {
+    } 
+    else if (from instanceof CompendiumDirectory) {
         // from.collection does not exist in V10
         for (const doc of game.packs) {
             await onePack(folderpath(doc), doc);
         }
-    } else if (from instanceof CompendiumCollection) {
+    } 
+    else if (from instanceof CompendiumCollection) {
         await onePack(TOP_PATH, from);
-    } else if (from instanceof CombatTracker) {
+    } 
+    else if (from instanceof CombatTracker) {
         for (const combat of from.combats) {
             await oneDocument(TOP_PATH, combat);
         }
     }
     else if (from instanceof ChatLog) {
         await oneChatLog(from.title, from);
-    } else
+    } 
+    else
         await oneDocument(TOP_PATH, from);
 
     let blob = await zip.generateAsync({ type: "blob" });

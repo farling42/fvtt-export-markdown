@@ -1,4 +1,5 @@
-import * as MOD_CONFIG from "./config.js"
+import * as MOD_CONFIG from "./config.js";
+import { registerHandlebarsHelpers } from "./handlebar-helpers.js"
 
 /*
  * MODULE OPTIONS
@@ -94,7 +95,12 @@ Hooks.once('ready', () => {
             filePicker: "text"
         })
     }
+
+    // Register Handle Bar Helpers
+    registerHandlebarsHelpers();
+
 })
+// End Hook Once
 
 // Add headers for the Actor and Item settings
 Hooks.on('renderSettingsConfig', (app, html, options) => {
