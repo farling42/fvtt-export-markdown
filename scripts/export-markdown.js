@@ -169,27 +169,25 @@ function uuidFailSafe(target, label) {
         let uuidParts = foundry.utils.parseUuid(target);
 
         // Using the UUID parts information from the target, get the UUID of the target's parent
-        if (!uuidParts.documentId.startsWith("uuid")) {
-            try {
-                let parentUuid = uuidParts.collection.getUuid(uuidParts.documentId);
-                
-                // Now that we have the parent's UUID, get it in document form.
-                // In testing, it appears the parent can be fetched via a synchronoous operation, which is what we need.
-                let parentDoc = fromUuidSync(parentUuid);
-                    // Lookup the friendly name of the path, so we can use it as a prefix for the link to make it more unique.
-                if (parentDoc) {
-                    let pack = game.packs.get(parentDoc.pack);
-                    if (pack) {
-                        // Slashes in the title aren't real paths and as part of the export become underscores
-                        let fixed_title = pack.title.replaceAll('/', '_');
-                        let result = `${fixed_title}/${parentDoc.name}/${label}`;
-                        return formatLink(result, label, /*inline*/false);
-                    }
+        try {
+            let parentUuid = uuidParts.collection.getUuid(uuidParts.documentId);
+            
+            // Now that we have the parent's UUID, get it in document form.
+            // In testing, it appears the parent can be fetched via a synchronoous operation, which is what we need.
+            let parentDoc = fromUuidSync(parentUuid);
+                // Lookup the friendly name of the path, so we can use it as a prefix for the link to make it more unique.
+            if (parentDoc) {
+                let pack = game.packs.get(parentDoc.pack);
+                if (pack) {
+                    // Slashes in the title aren't real paths and as part of the export become underscores
+                    let fixed_title = pack.title.replaceAll('/', '_');
+                    let result = `${fixed_title}/${parentDoc.name}/${label}`;
+                    return formatLink(result, label, /*inline*/false);
                 }
             }
-            catch (error) {
-                console.error(error);
-            }
+        }
+        catch (error) {
+            console.error(error);
         }
         console.log("Ooops.... we fell through.  Unresolved URL: ", target);
     }
