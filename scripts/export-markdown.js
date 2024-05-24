@@ -165,9 +165,6 @@ function uuidFailSafe(target, label) {
         // document is only available via an async operation.
         // We can't resolve async function calls via a handlebar, so let's try another approach...
         
-        // I discovered this function mentioned in foundry.js:
-        // let {collection, documentId, documentType, embedded, doc} = foundry.utils.parseUuid(target);
-
         // Get the UUID parts for the target - that can always be done synchronously.
         let uuidParts = foundry.utils.parseUuid(target);
 
@@ -178,23 +175,21 @@ function uuidFailSafe(target, label) {
             // Now that we have the parent's UUID, get it in document form.
             // In testing, it appears the parent can be fetched via a synchronoous operation, which is what we need.
             let parentDoc = fromUuidSync(parentUuid);
-
-            if (parentDoc) {
                 // Lookup the friendly name of the path, so we can use it as a prefix for the link to make it more unique.
+            if (parentDoc) {
                 let pack = game.packs.get(parentDoc.pack);
                 if (pack) {
                     // Slashes in the title aren't real paths and as part of the export become underscores
                     let fixed_title = pack.title.replaceAll('/', '_');
                     let result = `${fixed_title}/${parentDoc.name}/${label}`;
-                    //console.log("Resolved URL:", result);
                     return formatLink(result, label, /*inline*/false);
                 }
-            }
         }
+            }
         console.log("Ooops.... we fell through.  Unresolved URL: ", target);
     }
-    return dummyLink(target, label);
 }
+    return dummyLink(target, label);
 
 function dummyLink(target, label) {
     // Make sure that "|" in the ID don't start the label early (e.g. @PDF[whatever|page=name]{label})
@@ -640,8 +635,7 @@ export async function exportMarkdown(from, zipname) {
             await onePackFolder(TOP_PATH, from);
         else
             await oneFolder(TOP_PATH, from);
-    }
-    else if (is_v10 ? from instanceof SidebarDirectory : from instanceof DocumentDirectory) {
+    } else if (is_v10 ? from instanceof SidebarDirectory : from instanceof DocumentDirectory) {
         for (const doc of from.documents) {
             await oneDocument(folderpath(doc), doc);
         }
@@ -659,8 +653,7 @@ export async function exportMarkdown(from, zipname) {
         for (const combat of from.combats) {
             await oneDocument(TOP_PATH, combat);
         }
-    }
-    else if (from instanceof ChatLog) {
+    } else if (from instanceof ChatLog) {
         await oneChatLog(from.title, from);
     } 
     else

@@ -1,5 +1,16 @@
 # CHANGELOG
 
+## 0.12.0
+
+- Provide some useful built-in handlebars functions, updates by @AmbientSilence (see README for more details)
+  - `{{EMDvalidFilename string}}` converts string into a valid filename
+  - `{{EMDconvertHtml context string}}` converts the supplied string into HTML
+  - `{{EMDfileConvert filename label_or_size}}` to store a referenced file and create a link to it.
+  - `{{EMDitemsOfType items type}}` reduce a collection/array to only those of a particular type.
+  - `{{EMDtitleCase string}}` convert a string to title case.
+- Support folders inside compendium packs.
+- NOTE: Internally change the `convertHtml` function to be synchronous (so that it can be called from a handlebars helper). Please report if this causes failures.
+
 ## 0.11.1
 
 - Switch method of detecting the system's Actors and Items to avoid a warning in Foundry V12.
