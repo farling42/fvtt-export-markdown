@@ -170,26 +170,31 @@ function uuidFailSafe(target, label) {
 
         // Using the UUID parts information from the target, get the UUID of the target's parent
         if (!uuidParts.documentId.startsWith("uuid")) {
-            let parentUuid = uuidParts.collection.getUuid(uuidParts.documentId);
-            
-            // Now that we have the parent's UUID, get it in document form.
-            // In testing, it appears the parent can be fetched via a synchronoous operation, which is what we need.
-            let parentDoc = fromUuidSync(parentUuid);
-                // Lookup the friendly name of the path, so we can use it as a prefix for the link to make it more unique.
-            if (parentDoc) {
-                let pack = game.packs.get(parentDoc.pack);
-                if (pack) {
-                    // Slashes in the title aren't real paths and as part of the export become underscores
-                    let fixed_title = pack.title.replaceAll('/', '_');
-                    let result = `${fixed_title}/${parentDoc.name}/${label}`;
-                    return formatLink(result, label, /*inline*/false);
+            try {
+                let parentUuid = uuidParts.collection.getUuid(uuidParts.documentId);
+                
+                // Now that we have the parent's UUID, get it in document form.
+                // In testing, it appears the parent can be fetched via a synchronoous operation, which is what we need.
+                let parentDoc = fromUuidSync(parentUuid);
+                    // Lookup the friendly name of the path, so we can use it as a prefix for the link to make it more unique.
+                if (parentDoc) {
+                    let pack = game.packs.get(parentDoc.pack);
+                    if (pack) {
+                        // Slashes in the title aren't real paths and as part of the export become underscores
+                        let fixed_title = pack.title.replaceAll('/', '_');
+                        let result = `${fixed_title}/${parentDoc.name}/${label}`;
+                        return formatLink(result, label, /*inline*/false);
+                    }
                 }
-        }
             }
+            catch (error) {
+                console.error(error);
+            }
+        }
         console.log("Ooops.... we fell through.  Unresolved URL: ", target);
     }
-}
     return dummyLink(target, label);
+}
 
 function dummyLink(target, label) {
     // Make sure that "|" in the ID don't start the label early (e.g. @PDF[whatever|page=name]{label})
@@ -216,7 +221,7 @@ function convertLinks(markdown, relativeTo) {
         let linkdoc;
         try {
             linkdoc = fromUuidSync(target, {relative: relativeTo});
-            if (!label && !hash) label = doc.name;
+            if (!label && !hash) label = linkdoc.name;
         } catch (error) {
             //console.debug(`Unable to fetch label from Compendium for ${target}`, error)
             return uuidFailSafe(target, label);
