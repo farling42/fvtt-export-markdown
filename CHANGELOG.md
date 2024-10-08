@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## 0.12.1
+
+- Update verified version to Foundry 12.331
+
 ## 0.12.0
 
 - Provide some useful built-in handlebars functions, updates by @AmbientSilence (see README for more details)
