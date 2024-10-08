@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## 0.12.2
+
+- Fix marker coordinates in Foundry V12.
+
 ## 0.12.1
 
 - Update verified version to Foundry 12.331
