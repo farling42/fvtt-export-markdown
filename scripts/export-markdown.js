@@ -352,12 +352,12 @@ async function oneRollTable(path, table) {
 
 function oneScene(path, scene) {
 
-    const sceneBottom = scene.dimensions.sceneRect.bottom;
-    const sceneLeft   = scene.dimensions.sceneRect.left;
+    const sceneBottom = scene.dimensions.sceneRect.y + scene.dimensions.sceneRect.height;
+    const sceneLeft   = scene.dimensions.sceneRect.x;
     const units_per_pixel = /*units*/ scene.grid.distance / /*pixels*/ scene.grid.size;
 
     function coord(pixels) {
-        return pixels * units_per_pixel;
+        return Math.round(pixels * units_per_pixel * 1000)/1000;  // to 3 dp
     }
     function coord2(pixely, pixelx) { return `${coord(sceneBottom - pixely)}, ${coord(pixelx - sceneLeft)}` };
 
