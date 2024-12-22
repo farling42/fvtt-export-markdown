@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## 0.12.3
+
+- Mark as NOT compatible with Foundry V13.
+
 ## 0.12.2
 
 - Fix marker coordinates in Foundry V12.
