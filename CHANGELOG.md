@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## 0.13.0
+
+- Use Hooks directly, rather than libWrapper (which removes the dependence on libWrapper).
+- Set minimum compatibility to Foundry V11 (in preparation for Foundry V13).
+- V13 compatibility is awaiting support from Foundry to allow the popup Context Menu to be extended by modules (e.g. the `getSidebarTabEntryContext` and `getSidebarTabFolderContext` hooks.)
+
 ## 0.12.3
 
 - Mark as NOT compatible with Foundry V13.
