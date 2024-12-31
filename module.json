@@ -5,7 +5,7 @@
   "version": "#{VERSION}#",
   "library": "false",
   "compatibility": {
-    "minimum": 10,
+    "minimum": 11,
     "verified": 12.331,
     "maximum": 12.999
   },
@@ -20,14 +20,6 @@
 			"twitter": "@shambles42"
 		}
   ],
-  "relationships": {
-    "requires": [
-			{
-				"id": "lib-wrapper",
-				"manifest": "https://github.com/ruipin/fvtt-lib-wrapper/releases/latest/download/module.json"
-			}
-    ]
-  },
   "esmodules": [
     "scripts/module-settings.js",
     "scripts/export-markdown.js",
