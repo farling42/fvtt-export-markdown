@@ -50,7 +50,7 @@ With this option unchecked, all documents will be stored in a file whose name is
 
 ## Handlebars Helpers
 
-The following handlebars helpers are provided as part of the module. They all have a prefix of "MD" so that they don't conflict with any other handlebars helpers that might already exist in Foundry.
+The following handlebars helpers are provided as part of the module. They all have a prefix of "EMD" so that they don't conflict with any other handlebars helpers that might already exist in Foundry.
 
 ### `{{EMDvalidFilename string}}`
 
@@ -79,10 +79,6 @@ The module can be installed directly from your Foundry server's module managemen
 Alternatively, you can install manually using the link:
 
 https://github.com/farling42/fvtt-export-markdown/releases/latest/download/module.json
-
-## Dependencies
-
-This library requires the libWrapper module in order to work properly.
 
 ## Plugins for use with Obsidian.md
 
