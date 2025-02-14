@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## 0.13.1
+
+- Set minimum compatibility to Foundry 13.336, due to fundamental changes in hooks.
+- It should be fully working on Foundry 13.336 onwards.
+
 ## 0.13.0
 
 - Use Hooks directly, rather than libWrapper (which removes the dependence on libWrapper).

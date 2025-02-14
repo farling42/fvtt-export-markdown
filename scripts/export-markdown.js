@@ -633,11 +633,11 @@ export async function exportMarkdown(from, zipname) {
             await onePackFolder(TOP_PATH, from);
         else
             await oneFolder(TOP_PATH, from);
-    } else if (from instanceof DocumentDirectory) {
-        for (const doc of from.documents) {
+    } else if (from instanceof foundry.applications.sidebar.DocumentDirectory) {
+        for (const doc of from.collection) {
             await oneDocument(folderpath(doc), doc);
         }
-    } else if (from instanceof CompendiumDirectory) {
+    } else if (from instanceof foundry.applications.sidebar.tabs.CompendiumDirectory) {
         // from.collection does not exist in V10
         for (const doc of game.packs) {
             await onePack(folderpath(doc), doc);
@@ -648,7 +648,7 @@ export async function exportMarkdown(from, zipname) {
         for (const combat of from.combats) {
             await oneDocument(TOP_PATH, combat);
         }
-    } else if (from instanceof ChatLog) {
+    } else if (from instanceof foundry.applications.sidebar.tabs.ChatLog) {
         await oneChatLog(from.title, from);
     } else
         await oneDocument(TOP_PATH, from);
@@ -664,52 +664,59 @@ function ziprawfilename(name, type) {
     return `${type}-${name}`;
 }
 
-Hooks.on('getSidebarTabEntryContext', (html, menuItems) => {
+Hooks.on('getEntryContextAbstractSidebarTab', (html, menuItems) => {
   menuItems.push({
       name: `${MODULE_NAME}.exportToMarkdown`,
       icon: '<i class="fas fa-file-zip"></i>',
       condition: () => game.user.isGM,
       callback: async header => {
           const li = header.closest(".directory-item");
-          const tabid = header.closest("section.directory").attr("id");
+          const id = li.dataset.entryId;
+          const tabid = header.closest("section.directory").id;
           if (tabid === "compendium") {
-            const pack = game.packs.get(li.data("pack"));
+            const pack = game.packs.get(li.dataset.pack);
             if (pack) exportMarkdown(pack, ziprawfilename(pack.title, pack.metadata.type));
           } else {
             const collection = game.collections.find(collection => collection.apps.find(entry => entry.id === tabid));
-            const entry = collection?.get(li.data("entryId"));
+            if (!collection) return;
+            const entry = collection.get(li.dataset.entryId);
             if (entry) exportMarkdown(entry, ziprawfilename(entry.name, entry.constructor.name));
           }
       },
   });
 })
 
-Hooks.on('getSidebarTabFolderContext', (html, menuItems) => {
+Hooks.on('getFolderContextAbstractSidebarTab', (html, menuItems) => {
   menuItems.push({
       name: `${MODULE_NAME}.exportToMarkdown`,
       icon: '<i class="fas fa-file-zip"></i>',
       condition: () => game.user.isGM,
       callback: async header => {
-          const folder = await fromUuid(header.closest(".directory-item").data("uuid"));
+          const folder = await fromUuid(header.closest(".directory-item").dataset.uuid);
           if (folder) exportMarkdown(folder, ziprawfilename(folder.name, folder.type));
       },
   });
 })
 
-Hooks.on("renderSidebarTab", async (app, html) => {
+Hooks.on("renderAbstractSidebarTab", async (app, html) => {
     if (!game.user.isGM) return;
 
     if (!(app instanceof Settings)) {
-        const label = game.i18n.localize(`${MODULE_NAME}.exportToMarkdown`);
-        const help  = game.i18n.localize(`${MODULE_NAME}.exportToMarkdownTooltip`);
-        let button = $(`<button style="flex: 0" title="${help}"><i class='fas fa-file-zip'></i>${label}</button>`)
-        button.click((event) => {
-            event.preventDefault();
-            exportMarkdown(app, ziprawfilename(app.constructor.name));
-        });
+      if (html.querySelector(`button[id=${MODULE_NAME}]`)) return;
 
-        html.append(button);
+      let button = document.createElement("button");
+      button.style = "flex: 0; height: 1.5em";
+      button.title = game.i18n.localize(`${MODULE_NAME}.exportToMarkdownTooltip`);
+      const label = game.i18n.localize(`${MODULE_NAME}.exportToMarkdown`);
+      button.innerHTML = `<i class='fas fa-file-zip'></i>${label}`;
+      button.id = MODULE_NAME;
+      button.addEventListener("click", (event) => {
+        event.preventDefault();
+        exportMarkdown(app, ziprawfilename(app.constructor.name));
+      });
+
+      html.append(button);
     } else {
-        console.debug(`Export-Markdown | Not adding button to sidebar`, app)
+        console.debug(`Export-Markdown | Not adding button to Settings sidebar`, app)
     }
 })

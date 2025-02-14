@@ -5,9 +5,8 @@
   "version": "#{VERSION}#",
   "library": "false",
   "compatibility": {
-    "minimum": 11,
-    "verified": 12.331,
-    "maximum": 12.999
+    "minimum": 13.336,
+    "verified": 13.336
   },
   "authors": [
 		{
