@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## 0.13.3
+
+- Set verified to 13.345
+
 ## 0.13.2
 
 - V13: Context Menu working on individual documents and folders.
