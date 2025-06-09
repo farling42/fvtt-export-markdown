@@ -698,6 +698,49 @@ Hooks.on('getFolderContextAbstractSidebarTab', (html, menuItems) => {
   });
 })
 
+// Foundry V13
+
+Hooks.on('getFolderContextOptions', (app, options) => {
+  options.push({
+      name: `${MODULE_NAME}.exportToMarkdown`,
+      icon: '<i class="fas fa-file-zip"></i>',
+      condition: () => game.user.isGM,
+      callback: async header => {
+          const folder = await fromUuid(header.closest(".directory-item").dataset.uuid);
+          if (folder) exportMarkdown(folder, ziprawfilename(folder.name, folder.type));
+      },
+  });
+})
+
+function documentContextOptions(app, options) {
+  options.push({
+      name: `${MODULE_NAME}.exportToMarkdown`,
+      icon: '<i class="fas fa-file-zip"></i>',
+      condition: () => game.user.isGM,
+      callback: li => {
+          const entry = app.collection.get(li.dataset.entryId);
+          if (entry) exportMarkdown(entry, ziprawfilename(entry.name, entry.constructor.name));
+      },
+  });
+}
+
+const hooknames = [
+  "getChatMessageContextOptions",
+  "getCombatTrackerContextOptions",
+  "getSceneContextOptions",
+  "getActorContextOptions",
+  "getItemContextOptions",
+  "getJournalEntryContextOptions",
+  "getRollTableContextOptions",
+  "getCardsContextOptions",
+  "getMacroContextOptions",
+  "getPlaylistSoundContextOptions",
+  "getCompendiumContextOptions",
+]
+
+for (const hook of hooknames)
+  Hooks.on(hook, documentContextOptions);
+
 Hooks.on("renderAbstractSidebarTab", async (app, html) => {
     if (!game.user.isGM) return;
 

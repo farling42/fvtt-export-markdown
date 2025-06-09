@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## 0.13.2
+
+- V13: Context Menu working on individual documents and folders.
+
 ## 0.13.1
 
 - Set minimum compatibility to Foundry 13.336, due to fundamental changes in hooks.
