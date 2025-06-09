@@ -734,12 +734,23 @@ const hooknames = [
   "getRollTableContextOptions",
   "getCardsContextOptions",
   "getMacroContextOptions",
-  "getPlaylistSoundContextOptions",
-  "getCompendiumContextOptions",
+  "getPlaylistSoundContextOptions"
 ]
 
 for (const hook of hooknames)
   Hooks.on(hook, documentContextOptions);
+
+Hooks.on('getCompendiumContextOptions', (app, options) => {
+  options.push({
+      name: `${MODULE_NAME}.exportToMarkdown`,
+      icon: '<i class="fas fa-file-zip"></i>',
+      condition: () => game.user.isGM,
+      callback: li => {
+        const pack = game.packs.get(li.dataset.pack);
+        if (pack) exportMarkdown(pack, ziprawfilename(pack.title, pack.metadata.type));
+      },
+  });
+})
 
 Hooks.on("renderAbstractSidebarTab", async (app, html) => {
     if (!game.user.isGM) return;
