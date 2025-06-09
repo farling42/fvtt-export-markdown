@@ -664,42 +664,6 @@ function ziprawfilename(name, type) {
     return `${type}-${name}`;
 }
 
-Hooks.on('getEntryContextAbstractSidebarTab', (html, menuItems) => {
-  menuItems.push({
-      name: `${MODULE_NAME}.exportToMarkdown`,
-      icon: '<i class="fas fa-file-zip"></i>',
-      condition: () => game.user.isGM,
-      callback: async header => {
-          const li = header.closest(".directory-item");
-          const id = li.dataset.entryId;
-          const tabid = header.closest("section.directory").id;
-          if (tabid === "compendium") {
-            const pack = game.packs.get(li.dataset.pack);
-            if (pack) exportMarkdown(pack, ziprawfilename(pack.title, pack.metadata.type));
-          } else {
-            const collection = game.collections.find(collection => collection.apps.find(entry => entry.id === tabid));
-            if (!collection) return;
-            const entry = collection.get(li.dataset.entryId);
-            if (entry) exportMarkdown(entry, ziprawfilename(entry.name, entry.constructor.name));
-          }
-      },
-  });
-})
-
-Hooks.on('getFolderContextAbstractSidebarTab', (html, menuItems) => {
-  menuItems.push({
-      name: `${MODULE_NAME}.exportToMarkdown`,
-      icon: '<i class="fas fa-file-zip"></i>',
-      condition: () => game.user.isGM,
-      callback: async header => {
-          const folder = await fromUuid(header.closest(".directory-item").dataset.uuid);
-          if (folder) exportMarkdown(folder, ziprawfilename(folder.name, folder.type));
-      },
-  });
-})
-
-// Foundry V13
-
 Hooks.on('getFolderContextOptions', (app, options) => {
   options.push({
       name: `${MODULE_NAME}.exportToMarkdown`,
