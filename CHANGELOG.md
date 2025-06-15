@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## 0.12.4
+
+- Fix an issue with decoding links when real-name (not UUID) is used for created MD filenames and the links do not have an explicit label (`{something}`)
+
 ## 0.12.3
 
 - Mark as NOT compatible with Foundry V13.
