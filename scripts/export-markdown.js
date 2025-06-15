@@ -216,7 +216,7 @@ function convertLinks(markdown, relativeTo) {
         let linkdoc;
         try {
             linkdoc = fromUuidSync(target, {relative: relativeTo});
-            if (!label && !hash) label = doc.name;
+            if (!label && !hash) label = linkdoc.name;
         } catch (error) {
             //console.debug(`Unable to fetch label from Compendium for ${target}`, error)
             return uuidFailSafe(target, label);

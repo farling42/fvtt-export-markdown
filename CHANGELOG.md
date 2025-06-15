@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## 0.13.4
+
+- Fix an issue with decoding links when real-name (not UUID) is used for created MD filenames and the links do not have an explicit label ({something})
+
 ## 0.13.3
 
 - Set verified to 13.345
