@@ -158,39 +158,6 @@ function notefilename(doc) {
 
 let turndownService, gfm;
 
-// This is function is used in pf2e-md-exporter as a part of removing async functions used in handlebar helpers.
-function uuidFailSafe(target, label) {
-    if (!use_uuid_for_notename) {
-        // Foundry's fromUuidSync() will thrown an error if the UUID 
-        // document is only available via an async operation.
-        // We can't resolve async function calls via a handlebar, so let's try another approach...
-        
-        // Get the UUID parts for the target - that can always be done synchronously.
-        let uuidParts = foundry.utils.parseUuid(target);
-
-        // Using the UUID parts information from the target, get the UUID of the target's parent
-        if (!uuidParts.documentId.startsWith("uuid")) {
-            let parentUuid = uuidParts.collection.getUuid(uuidParts.documentId);
-            
-            // Now that we have the parent's UUID, get it in document form.
-            // In testing, it appears the parent can be fetched via a synchronoous operation, which is what we need.
-            let parentDoc = fromUuidSync(parentUuid);
-            if (parentDoc) {
-                // Lookup the friendly name of the path, so we can use it as a prefix for the link to make it more unique.
-                let pack = game.packs.get(parentDoc.pack);
-                if (pack) {
-                    // Slashes in the title aren't real paths and as part of the export become underscores
-                    let fixed_title = pack.title.replaceAll('/', '_');
-                    let result = `${fixed_title}/${parentDoc.name}/${label}`;
-                    return formatLink(result, label, /*inline*/false);
-                }
-            }
-        }
-        console.log("Ooops.... we fell through.  Unresolved URL: ", target);
-    }
-    return dummyLink(target, label);
-}
-
 function dummyLink(target, label) {
     // Make sure that "|" in the ID don't start the label early (e.g. @PDF[whatever|page=name]{label})
     return formatLink(target, label);
@@ -213,16 +180,11 @@ function convertLinks(markdown, relativeTo) {
         // Ensure the target is in a UUID format.
         if (type !== "UUID") target = `${type}.${target}`
 
-        let linkdoc;
-        try {
-            linkdoc = fromUuidSync(target, {relative: relativeTo});
-            if (!label && !hash) label = linkdoc.name;
-        } catch (error) {
-            //console.debug(`Unable to fetch label from Compendium for ${target}`, error)
-            return uuidFailSafe(target, label);
-        }
-
+        // {strict: false} returns null if unable to decode
+        const linkdoc = fromUuidSync(target, {relative: relativeTo, strict: false});
         if (!linkdoc) return dummyLink(target, label);
+
+        if (!label && !hash) label = linkdoc.name;
         
         // A journal with only one page is put into a Note using the name of the Journal, not the only Page.
         let filename = notefilename(linkdoc);
