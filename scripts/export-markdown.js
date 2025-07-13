@@ -158,15 +158,21 @@ function notefilename(doc) {
 
 let turndownService, gfm;
 
+// During a single call to convertHtml, collect any promises returned by needing to call fromUuid.
+// These will be replaced after the conversion is complete.
+let stored_links;
+
 function dummyLink(target, label) {
     // Make sure that "|" in the ID don't start the label early (e.g. @PDF[whatever|page=name]{label})
     return formatLink(target, label);
 }
 
+
+
 function convertLinks(markdown, relativeTo) {
 
     // Needs to be nested so that we have access to 'relativeTo'
-    function replaceOneLink(str, type, target, hash, label, offset, string, groups) {
+    function replaceOneLink(original, type, target, hash, label, offset, string, groups) {
 
         // One of my Foundry Modules introduced adding "inline" to the start of type.
         let inline = type.startsWith("inline");
@@ -175,31 +181,42 @@ function convertLinks(markdown, relativeTo) {
 
         // Ignore link if it isn't one that we can parse.
         const documentTypes = new Set(CONST.DOCUMENT_LINK_TYPES.concat(["Compendium", "UUID"]));
-        if (!documentTypes.has(type)) return str;
+        if (!documentTypes.has(type)) return original;
         
         // Ensure the target is in a UUID format.
         if (type !== "UUID") target = `${type}.${target}`
 
-        // {strict: false} returns null if unable to decode
-        const linkdoc = fromUuidSync(target, {relative: relativeTo, strict: false});
-        if (!linkdoc) return dummyLink(target, label);
-
-        if (!label && !hash) label = linkdoc.name;
+        // Since we might need to process the result of fromUuid in the same way as fromUuidSync,
+        // put the common code into a function.
+        function postProcess(linkdoc) {
+            if (!linkdoc) return dummyLink(target, label);
+            if (!label && !hash) label = linkdoc.name;
         
-        // A journal with only one page is put into a Note using the name of the Journal, not the only Page.
-        let filename = notefilename(linkdoc);
+            // A journal with only one page is put into a Note using the name of the Journal, not the only Page.
+            let filename = notefilename(linkdoc);
     
-        // FOUNDRY uses slugified section names, rather than the actual text of the HTML header.
-        // So we need to look up the slug in the Journal Page's TOC.
-        let result = filename;
-        if (hash && linkdoc instanceof JournalEntryPage) {
-            const toc = linkdoc.toc;
-            if (toc[hash]) {
-                result += `#${toc[hash].text}`;
-                if (!label) label = toc[hash].text;
+            // FOUNDRY uses slugified section names, rather than the actual text of the HTML header.
+            // So we need to look up the slug in the Journal Page's TOC.
+            let result = filename;
+            if (hash && linkdoc instanceof JournalEntryPage) {
+                const toc = linkdoc.toc;
+                if (toc[hash]) {
+                    result += `#${toc[hash].text}`;
+                    if (!label) label = toc[hash].text;
+                }
             }
+            return formatLink(result, label, /*inline*/false);  // TODO: maybe pass inline if we really want inline inclusion
         }
-        return formatLink(result, label, /*inline*/false);  // TODO: maybe pass inline if we really want inline inclusion
+
+        // {strict: false} returns null if unable to decode
+        // Try fetching synchronously, if that fails then cache the result of an asynchronous fetch
+        const linkdoc = fromUuidSync(target, {relative: relativeTo, strict: false});
+        if (!linkdoc) {
+          stored_links[original] = new Promise(resolve => 
+            fromUuid(target, {relative: relativeTo, strict: false}).then(result => resolve(postProcess(result))));
+          return original;  // it will be replaced later in convertHtml
+        }
+        return postProcess(linkdoc);
     }
     
     // Convert all the links
@@ -270,10 +287,14 @@ async function oneJournal(path, journal) {
 
     for (const page of journal.pages) {
         let markdown;
+        stored_links={};
         switch (page.type) {
             case "text":
                 switch (page.text.format) {
                     case 1: // HTML
+                        // enrichHTML will call _primeCompendiums which will pre-load all compendiums
+                        // for when 
+                        await foundry.applications.ux.TextEditor.implementation.enrichHTML(page.text.content);
                         markdown = convertHtml(page, page.text.content);
                         break;
                     case 2: // MARKDOWN
@@ -287,6 +308,20 @@ async function oneJournal(path, journal) {
                 break;
         }
         if (markdown) {
+
+            if (!foundry.utils.isEmpty(stored_links)) {
+              //console.log(`DOC ${journal.name}: PAGE ${page.name} waiting for Promises of:`, stored_links);
+              // Wait for them all to resolve.
+              await Promise.all(Object.values(stored_links));
+              //console.log('BEFORE', markdown)
+              // Replace each marked with the real link.
+              for (const [key,value] of Object.entries(stored_links)) {
+                // Markdown conversion will have escaped square brackets.
+                // The key will have HTML tags (e.g. '&amp;') which need to be converted.
+                markdown = markdown.replaceAll(foundry.utils.unescapeHTML(key).replace('[','\\[').replace(']','\\]'), await value);
+              }
+              //if (markdown.includes('@UUID')) console.log('AFTER', markdown)
+            }
             markdown = frontmatter(page, page.title.show) + markdown;
             zip.folder(subpath).file(`${notefilename(page)}.md`, markdown, { binary: false });
         }
@@ -604,7 +639,7 @@ export async function exportMarkdown(from, zipname) {
         for (const doc of game.packs) {
             await onePack(folderpath(doc), doc);
         }
-    } else if (from instanceof CompendiumCollection) {
+    } else if (from instanceof foundry.documents.collections.CompendiumCollection) {
         await onePack(TOP_PATH, from);
     } else if (from instanceof CombatTracker) {
         for (const combat of from.combats) {
@@ -681,7 +716,7 @@ Hooks.on('getCompendiumContextOptions', (app, options) => {
 Hooks.on("renderAbstractSidebarTab", async (app, html) => {
     if (!game.user.isGM) return;
 
-    if (!(app instanceof Settings)) {
+    if (!(app instanceof foundry.applications.sidebar.tabs.Settings)) {
       if (html.querySelector(`button[id=${MODULE_NAME}]`)) return;
 
       let button = document.createElement("button");
@@ -696,7 +731,5 @@ Hooks.on("renderAbstractSidebarTab", async (app, html) => {
       });
 
       html.append(button);
-    } else {
-        console.debug(`Export-Markdown | Not adding button to Settings sidebar`, app)
     }
 })
