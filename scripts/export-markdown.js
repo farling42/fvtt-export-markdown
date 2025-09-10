@@ -257,7 +257,7 @@ function convertLinks(markdown, relativeTo) {
     return markdown;
 }
 
-export function convertHtml(doc, html) {
+export async function convertHtml(doc, html) {
     // Foundry uses "showdown" rather than "turndown":
     // SHOWDOWN fails to parse tables at all
 
@@ -276,7 +276,10 @@ export function convertHtml(doc, html) {
     try {
         // Convert links BEFORE doing HTML->MARKDOWN (to get links inside tables working properly)
         // The conversion "escapes" the "[[...]]" markers, so we have to remove those markers afterwards
-        markdown = turndownService.turndown((convertLinks(html, doc))).replaceAll("\\[\\[", "[[").replaceAll("\\]\\]", "]]");
+        const part1 = convertLinks(html, doc);
+        const include_gm = game.settings.get(MOD_CONFIG.MODULE_NAME, MOD_CONFIG.OPTION_INCLUDE_GM_ONLY);
+        const part2 = await foundry.applications.ux.TextEditor.implementation.enrichHTML(part1, { secrets: include_gm });
+        markdown = turndownService.turndown(part2).replaceAll("\\[\\[", "[[").replaceAll("\\]\\]", "]]");
         // Now convert file references
         const filepattern = /!\[\]\(([^)]*)\)/g;
         markdown = markdown.replaceAll(filepattern, replaceLinkedFile);
@@ -298,7 +301,14 @@ function frontmatter(doc, showheader = true) {
         header;
 }
 
+const PLAYER_OWNERSHIP = [
+    CONST.DOCUMENT_OWNERSHIP_LEVELS.INHERIT,  // for pages
+    CONST.DOCUMENT_OWNERSHIP_LEVELS.OBSERVER,
+    CONST.DOCUMENT_OWNERSHIP_LEVELS.OWNER];
+
 async function oneJournal(path, journal) {
+    const include_gm = game.settings.get(MOD_CONFIG.MODULE_NAME, MOD_CONFIG.OPTION_INCLUDE_GM_ONLY);
+
     let subpath = path;
     if (journal.pages.size > 1) {
         // Put all the notes in a sub-folder
@@ -307,6 +317,8 @@ async function oneJournal(path, journal) {
         // This is a Folder note, so goes INSIDE the folder for this journal entry
         let markdown = frontmatter(journal) + "\n## Table of Contents\n";
         for (let page of journal.pages.contents.sort((a, b) => a.sort - b.sort)) {
+            // Don't include pages hidden from the players in the TOC.
+            if (!include_gm && !PLAYER_OWNERSHIP.includes(page.ownership.default)) continue;
             markdown += `\n${' '.repeat(2 * (page.title.level - 1))}- ${formatLink(docfilename(page), page.name)}`;
         }
         // Filename must match the folder name
@@ -315,14 +327,19 @@ async function oneJournal(path, journal) {
 
     for (const page of journal.pages) {
         let markdown;
+        if (!include_gm && !PLAYER_OWNERSHIP.includes(page.ownership.default)) {
+            console.log(`Not visible to players: skipping Journal Page '${journal.name}', page '${page.name}'`)
+            continue;
+        }
+
         switch (page.type) {
             case "text":
                 switch (page.text.format) {
                     case 1: // HTML
                         // enrichHTML will call _primeCompendiums which will pre-load all compendiums
-                        // for when 
-                        await foundry.applications.ux.TextEditor.implementation.enrichHTML(page.text.content);
-                        markdown = convertHtml(page, page.text.content);
+                        // for when we do the actual conversion.
+                        await foundry.applications.ux.TextEditor.implementation.enrichHTML(page.text.content, { secrets: include_gm });
+                        markdown = await convertHtml(page, page.text.content);
                         break;
                     case 2: // MARKDOWN
                         markdown = page.text.markdown;
@@ -353,7 +370,10 @@ async function oneRollTable(path, table) {
     for (const tableresult of table.results) {
         const range = (tableresult.range[0] == tableresult.range[1]) ? tableresult.range[0] : `${tableresult.range[0]}-${tableresult.range[1]}`;
         // Escape the "|" in any links
-        markdown += `| ${range} | ${(convertLinks(tableresult.getChatText(), table)).replaceAll("|", "\\|")} |\n`;
+
+        // tableresult.getChatText() - avoid deprecation warning
+        const body = (tableresult.type === "document" ? `@UUID[${tableresult.documentUuid}]{${tableresult.name}}` : tableresult.description);
+        markdown += `| ${range} | ${(convertLinks(body)).replaceAll("|", "\\|")} |\n`;
     }
 
     markdown = await patchAsyncLinks(markdown);
@@ -484,7 +504,7 @@ async function documentToJSON(path, doc) {
     ]
     for (const field of DESCRIPTIONS) {
         let text = foundry.utils.getProperty(doc, field);
-        if (text) markdown += convertHtml(doc, text) + EOL + EOL;
+        if (text) markdown += await convertHtml(doc, text) + EOL + EOL;
     }
 
     let datastring;
@@ -500,13 +520,13 @@ async function documentToJSON(path, doc) {
     // Convert LINKS: Foundry syntax to Markdown syntax
     datastring = convertLinks(datastring, doc);
 
-    markdown += 
+    markdown +=
         MARKER + doc.documentName + EOL +
         datastring +
         MARKER + EOL;
 
     markdown = await patchAsyncLinks(markdown);
-    
+
     zip.folder(path).file(zipfilename(doc), markdown, { binary: false });
 }
 
@@ -532,6 +552,12 @@ async function maybeTemplate(path, doc) {
 }
 
 async function oneDocument(path, doc) {
+    const include_gm = game.settings.get(MOD_CONFIG.MODULE_NAME, MOD_CONFIG.OPTION_INCLUDE_GM_ONLY);
+    if (!include_gm && !PLAYER_OWNERSHIP.includes(doc.ownership.default)) {
+        console.log(`Not visible to players: skipping ${doc.documentName} '${doc.name}'`)
+        return;
+    }
+
     if (doc instanceof JournalEntry)
         await oneJournal(path, doc);
     else if (doc instanceof RollTable)
@@ -555,7 +581,7 @@ async function oneChatMessage(path, message) {
     if (!html?.length) return message.export();
 
     return `## ${new Date(message.timestamp).toLocaleString()}\n\n` +
-        convertHtml(message, html[0].outerHTML);
+        await convertHtml(message, html[0].outerHTML);
 }
 
 async function oneChatLog(path, chatlog) {
@@ -664,7 +690,7 @@ export async function exportMarkdown(from, zipname) {
         }
     } else if (from instanceof foundry.documents.collections.CompendiumCollection) {
         await onePack(TOP_PATH, from);
-    } else if (from instanceof CombatTracker) {
+    } else if (from instanceof foundry.applications.sidebar.tabs.CombatTracker) {
         for (const combat of from.combats) {
             await oneDocument(TOP_PATH, combat);
         }

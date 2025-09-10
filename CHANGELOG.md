@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## 0.13.6
+
+- Add an option to only export Player-viewable material, based on ownership of documents and journal pages, and the SECRET block style. (See the new module option "Include GM-only content" which defaults to enabled.)
+- Address deprecation warnings from Foundry V13.
+
 ## 0.13.5
 
 - Use a different (more reliable?) method to read links to documents in Compendiums.
