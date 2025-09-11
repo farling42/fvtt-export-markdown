@@ -154,8 +154,13 @@ let stored_links = {};
 const STORED_LINK_PREFIX = 'marEMDker-';
 
 function dummyLink(target, label) {
+	// target is an ID, but we don't want to use that as the filename.
+	const use_target = !use_uuid_for_notename &&
+		(target.length === 16 || (target.length > 16 && target.at(-17) === '.')) &&
+		foundry.data.validators.isValidId(target.slice(-16));
+
     // Make sure that "|" in the ID don't start the label early (e.g. @PDF[whatever|page=name]{label})
-    return formatLink(target, label);
+	return formatLink(use_target ? target : validFilename(label), label);
 }
 
 /**
@@ -228,7 +233,9 @@ function convertLinks(markdown, relativeTo) {
         // The returned promise will be processed by patchAsyncLinks()
         const marker = `${STORED_LINK_PREFIX}${foundry.utils.randomID(10)}`;
         stored_links[marker] = new Promise(resolve =>
-            fromUuid(target, { relative: relativeTo, strict: false }).then(linkdoc => resolve(postProcess(linkdoc))));
+            fromUuid(target, { relative: relativeTo, strict: false })
+			.then(linkdoc => resolve(postProcess(linkdoc)))
+			.catch(err => resolve(postProcess(undefined))));
         return marker;  // it will be replaced later in convertHtml
     }
 
@@ -366,10 +373,12 @@ async function oneRollTable(path, table) {
     zip.folder(path).file(zipfilename(table), markdown, { binary: false });
 }
 
-function oneScene(path, scene) {
+async function oneScene(path, scene) {
 
-    const sceneBottom = scene.dimensions.sceneRect.y + scene.dimensions.sceneRect.height;
-    const sceneLeft = scene.dimensions.sceneRect.x;
+	// scene.dimensions does not exist when scene is from an Adventure
+
+    const sceneBottom = Math.floor(scene.padding * scene.height) + scene.height;
+    const sceneLeft = Math.floor(scene.padding * scene.width);
     const units_per_pixel = /*units*/ scene.grid.distance / /*pixels*/ scene.grid.size;
 
     function coord(pixels) {
@@ -403,10 +412,10 @@ function oneScene(path, scene) {
     markdown +=
         `\n${MARKER}leaflet\n` +
         `id: ${scene.uuid}\n` +
-        `bounds:\n    - [0, 0]\n    - [${coord(scene.dimensions.sceneRect.height)}, ${coord(scene.dimensions.sceneRect.width)}]\n` +
+        `bounds:\n    - [0, 0]\n    - [${coord(scene.height)}, ${coord(scene.width)}]\n` +
         "defaultZoom: 2\n" +
-        `lat: ${coord(scene.dimensions.sceneRect.height / 2)}\n` +
-        `long: ${coord(scene.dimensions.sceneRect.width / 2)}\n` +
+        `lat: ${coord(scene.height / 2)}\n` +
+        `long: ${coord(scene.width / 2)}\n` +
         `height: 100%\n` +
         `draw: false\n` +
         `unit: ${scene.grid.units}\n` +
@@ -415,14 +424,11 @@ function oneScene(path, scene) {
         `image: ${fileconvert(scene.background.src, null, /*inline*/false)}\n` +
         layers;
 
-    // scene.dimensions.distance / distancePixels / height / maxR / ratio
-    // scene.dimensions.rect: (x, y, width, height, type:1)
-    // scene.dimensions.sceneHeight/sceneWidth/size/height/width
-    // scene.grid: { alpha: 0.2, color: "#000000", distance: 5, size: 150, type: 1, units: "ft"}
-    // scene.height/width
-
     for (const note of scene.notes) {
-        const linkdoc = note.page || note.entry;
+		// for Adventure, need to use entryId and pageId:
+		// entryId => JournalEntry.entryId
+		// pageId (optional) => JournalEntry.entryId.JournalEntryPage.pageId
+        const linkdoc = note.page || note.entry; // not valid inside Adventure
         const linkfile = linkdoc ? notefilename(linkdoc) : "Not Linked";
         // Leaflet plugin doesn't like ":" appearsing in the Note's label.
         const label = note.label.replaceAll(":", "_");
@@ -438,7 +444,7 @@ function oneScene(path, scene) {
     zip.folder(path).file(zipfilename(scene), markdown, { binary: false });
 }
 
-function onePlaylist(path, playlist) {
+async function onePlaylist(path, playlist) {
     // playlist.description
     // playlist.fade
     // playlist.mode
@@ -470,10 +476,57 @@ function onePlaylist(path, playlist) {
     zip.folder(path).file(zipfilename(playlist), markdown, { binary: false });
 }
 
+async function oneAdventure(advpath, adventure) {
+	console.log(adventure);
+
+	let basepath = formpath(advpath, validFilename(adventure.name));
+
+	if (adventure.actors.size) {
+		const path = formpath(basepath, 'actors');
+		for (const actor of adventure.actors) await maybeTemplate(path, actor); // oneActor
+	}
+	if (adventure.cards.size) {
+		const path = formpath(basepath, 'cards');
+		for (const card of adventure.cards) await maybeTemplate(path, card); // oneCard
+	}
+	if (adventure.combats.size) {
+		const path = formpath(basepath, 'combats');
+		for (const combat of adventure.combats) await maybeTemplate(path, combat); // oneCombat
+	}
+	if (adventure.items.size) {
+		const path = formpath(basepath, 'items');
+		for (const item of adventure.items) await maybeTemplate(path, item); // oneItem
+	}
+	if (adventure.journal.size) {
+		const path = formpath(basepath, 'journals');
+		for (const journal of adventure.journal) await oneJournal(path, journal);
+	}
+	if (adventure.macros.size) {
+		const path = formpath(basepath, 'macros');
+		for (const macro of adventure.macros) await maybeTemplate(path, macro); // oneMacro
+	}
+	if (adventure.playlists.size) {
+		const path = formpath(basepath, 'playlists');
+		for (const playlist of adventure.playlists) await onePlaylist(path, playlist);
+	}
+	if (adventure.scenes.size) {
+		const path = formpath(basepath, 'scenes');
+		for (const scene of adventure.scenes) await oneScene(path, scene);
+	}
+	if (adventure.tables.size) {
+		const path = formpath(basepath, 'tables');
+		for (const table of adventure.tables) await oneRollTable(path, table);
+	}
+}
+
 async function documentToJSON(path, doc) {
     // see Foundry exportToJSON
+	//if (!doc.toCompendium) {
+	//	console.error(`Document ${doc.documentName} does not have a toCompendium() function`);
+	//	return;
+	//}
 
-    const data = doc.toCompendium(null);
+    const data = doc.toCompendium ? doc.toCompendium(null) : doc.toObject();
     // Remove things the user is unlikely to need
     if (data.prototypeToken) delete data.prototypeToken;
 
@@ -550,6 +603,8 @@ async function oneDocument(path, doc) {
         await oneScene(path, doc);
     else if (doc instanceof Playlist)
         await onePlaylist(path, doc);
+	else if (doc instanceof Adventure)
+		await oneAdventure(path, doc);
     else
         await maybeTemplate(path, doc);
     // Actor

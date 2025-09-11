@@ -4,6 +4,7 @@
 
 - Allow other modules to generate markdown using `game.modules.get('export-markdown').api.generateMarkdownZip(from, zipformat)`
 - Set default value for "notename-is-uuid" and "folder-as-uuid" to `false`.
+- Add imperfect decoding of Adventure documents (links don't always work).
 
 ## 0.13.6
 
