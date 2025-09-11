@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## 0.13.7
+
+- Allow other modules to generate markdown using `game.modules.get('export-markdown').api.generateMarkdownZip(from, zipformat)`
+- Set default value for "notename-is-uuid" and "folder-as-uuid" to `false`.
+
 ## 0.13.6
 
 - Add an option to only export Player-viewable material, based on ownership of documents and journal pages, and the SECRET block style. (See the new module option "Include GM-only content" which defaults to enabled.)

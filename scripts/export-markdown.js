@@ -75,22 +75,6 @@ function templateFile(doc) {
     return game.settings.get(MODULE_NAME, `template.${base}.${doc.type}`) || game.settings.get(MODULE_NAME, `template.${base}`);
 }
 
-/**
- * Export data content to be saved to a local file
- * @param {string} blob       The Blob of data
- * @param {string} filename   The filename of the resulting download
- */
-function saveDataToFile(blob, filename) {
-    // Create an element to trigger the download
-    let a = document.createElement('a');
-    a.href = window.URL.createObjectURL(blob);
-    a.download = filename;
-
-    // Dispatch a click event to the element
-    a.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, view: window }));
-    return new Promise(resolve => setTimeout(() => { window.URL.revokeObjectURL(a.href); resolve() }, 100));
-}
-
 function folderpath(doc) {
     let result = "";
     let folder = doc.folder;
@@ -655,7 +639,12 @@ async function onePackFolder(path, folder) {
     }
 }
 
-export async function exportMarkdown(from, zipname) {
+/**
+ * @param {Document} from The Foundry Document to be converted into markdown and stored in the zip object
+ * @param {String} zipformat The required format of the returned zip object (see https://stuk.github.io/jszip/documentation/api_jszip/generate_async.html#type-option)
+ * @returns The type of object defined by `zipformat` containing the entire zip contents
+ */
+async function generateMarkdownZip(from, zipformat = 'blob') {
 
     clearTemplateCache();
 
@@ -699,12 +688,24 @@ export async function exportMarkdown(from, zipname) {
     } else
         await oneDocument(TOP_PATH, from);
 
-    let blob = await zip.generateAsync({ type: "blob" });
-    await saveDataToFile(blob, `${validFilename(zipname)}.zip`);
-    // ui.notifications.remove does not exist in Foundry V10
-    ui.notifications.remove?.(noteid);
+    const result = await zip.generateAsync({ type: zipformat });
+    ui.notifications.remove(noteid);
+	// Allow the JSZip object to be reclaimed.
+	zip = undefined;
 
-    console.log("POST stored_links", stored_links)
+	return result;
+}
+
+async function exportMarkdownFile(from, zipname) {
+
+    // Create an element to trigger the download
+    let a = document.createElement('a');
+    a.href = window.URL.createObjectURL(await generateMarkdownZip(from, 'blob'));
+    a.download = `${validFilename(zipname)}.zip`;
+
+    // Dispatch a click event to the element
+    a.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, view: window }));
+    return new Promise(resolve => setTimeout(() => { window.URL.revokeObjectURL(a.href); resolve() }, 100));
 }
 
 function ziprawfilename(name, type) {
@@ -719,7 +720,7 @@ Hooks.on('getFolderContextOptions', (app, options) => {
         condition: () => game.user.isGM,
         callback: async header => {
             const folder = await fromUuid(header.closest(".directory-item").dataset.uuid);
-            if (folder) exportMarkdown(folder, ziprawfilename(folder.name, folder.type));
+            if (folder) exportMarkdownFile(folder, ziprawfilename(folder.name, folder.type));
         },
     });
 })
@@ -731,7 +732,7 @@ function documentContextOptions(app, options) {
         condition: () => game.user.isGM,
         callback: li => {
             const entry = app.collection.get(li.dataset.entryId);
-            if (entry) exportMarkdown(entry, ziprawfilename(entry.name, entry.constructor.name));
+            if (entry) exportMarkdownFile(entry, ziprawfilename(entry.name, entry.constructor.name));
         },
     });
 }
@@ -759,7 +760,7 @@ Hooks.on('getCompendiumContextOptions', (app, options) => {
         condition: () => game.user.isGM,
         callback: li => {
             const pack = game.packs.get(li.dataset.pack);
-            if (pack) exportMarkdown(pack, ziprawfilename(pack.title, pack.metadata.type));
+            if (pack) exportMarkdownFile(pack, ziprawfilename(pack.title, pack.metadata.type));
         },
     });
 })
@@ -778,9 +779,13 @@ Hooks.on("renderAbstractSidebarTab", async (app, html) => {
         button.id = MODULE_NAME;
         button.addEventListener("click", (event) => {
             event.preventDefault();
-            exportMarkdown(app, ziprawfilename(app.constructor.name));
+            exportMarkdownFile(app, ziprawfilename(app.constructor.name));
         });
 
         html.append(button);
     }
+})
+
+Hooks.on("init", () => {
+	game.modules.get(MODULE_NAME).api = { generateMarkdownZip };
 })

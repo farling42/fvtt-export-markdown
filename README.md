@@ -80,6 +80,19 @@ Alternatively, you can install manually using the link:
 
 https://github.com/farling42/fvtt-export-markdown/releases/latest/download/module.json
 
+## API for other modules
+
+A function is available in `game.modules.get('export-markdown').api.generateMarkdownZip` which will generate a zip data object in a specific JS format.
+
+```js
+/**
+ * @param {Document} from The Foundry Document (or Folder) to be converted into markdown and stored in the zip object
+ * @param {String} zipformat The required format of the returned zip object (see https://stuk.github.io/jszip/documentation/api_jszip/generate_async.html#type-option)
+ * @returns The type of object defined by `zipformat` containing the entire zip contents
+ */
+async function generateMarkdownZip(from, zipformat = 'blob');
+```
+
 ## Plugins for use with Obsidian.md
 
 - "Front Matter Title" - To have document names appearing in Obsidian's Explorer (left sidebar). The only Feature which needs to be enabled is "Explorer".
