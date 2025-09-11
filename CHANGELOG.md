@@ -1,15 +1,19 @@
 # CHANGELOG
 
-## 0.13.7
+## 0.13.8
 
 - Allow other modules to generate markdown using `game.modules.get('export-markdown').api.generateMarkdownZip(from, zipformat)`
 - Set default value for "notename-is-uuid" and "folder-as-uuid" to `false`.
 - Add imperfect decoding of Adventure documents (links don't always work).
 
-## 0.13.6
+## 0.13.7
 
 - Add an option to only export Player-viewable material, based on ownership of documents and journal pages, and the SECRET block style. (See the new module option "Include GM-only content" which defaults to enabled.)
 - Address deprecation warnings from Foundry V13.
+
+## 0.13.6
+
+- Better handling for async link generation.
 
 ## 0.13.5
 
