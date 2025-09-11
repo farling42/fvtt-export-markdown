@@ -33,7 +33,7 @@ Hooks.once('ready', () => {
     hint: "When checked, Journals will be placed into a folder based on the UUID of the JournalEntry (if unchecked, the folder will be the Journal's name, but links to that journal will not work)",
     scope: "world",
     type: Boolean,
-    default: true,
+    default: false,
     config: true,
   });
 
@@ -42,7 +42,7 @@ Hooks.once('ready', () => {
     hint: "When checked, the created notes will have a name that matches the UUID of the document allowing for easy unique linking from other documents (when unchecked, the notes will use the name of the document, which might not be unique for linking purposes)",
     scope: "world",
     type: Boolean,
-    default: true,
+    default: false,
     config: true,
   });
 
