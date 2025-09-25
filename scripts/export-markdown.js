@@ -282,9 +282,11 @@ export async function convertHtml(doc, html) {
 
 function frontmatter(doc, showheader = true) {
     let header = showheader ? `\n# ${doc.name}\n` : "";
+    let mapid = (doc.type === 'map' && doc.system.code) ? `mapNote: ${doc.system.code}\n` : "";
     return FRONTMATTER +
         `title: "${doc.name}"\n` +
         `icon: "${DOCUMENT_ICON.lookup(doc)}"\n` +
+        mapid + 
         `aliases: "${doc.name}"\n` +
         `foundryId: ${doc.uuid}\n` +
         `tags:\n  - ${doc.documentName}\n` +
@@ -325,14 +327,15 @@ async function oneJournal(path, journal) {
 
         switch (page.type) {
             case "text":
+            case "map":
                 switch (page.text.format) {
-                    case 1: // HTML
+                    case CONST.JOURNAL_ENTRY_PAGE_FORMATS.HTML:
                         // enrichHTML will call _primeCompendiums which will pre-load all compendiums
                         // for when we do the actual conversion.
                         await foundry.applications.ux.TextEditor.implementation.enrichHTML(page.text.content, { secrets: include_gm });
                         markdown = await convertHtml(page, page.text.content);
                         break;
-                    case 2: // MARKDOWN
+                    case CONST.JOURNAL_ENTRY_PAGE_FORMATS.MARKDOWN:
                         markdown = page.text.markdown;
                         break;
                 }

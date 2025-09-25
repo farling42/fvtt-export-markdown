@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## 0.13.9
+
+- Add basic support to extract text from DND5E's "Map Location" Journal Page Type
+
 ## 0.13.8
 
 - Allow other modules to generate markdown using `game.modules.get('export-markdown').api.generateMarkdownZip(from, zipformat)`
