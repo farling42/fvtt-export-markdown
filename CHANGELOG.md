@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## 0.13.10
+
+- Prevent an exception occurringin maybeTemplate when using a template file.
+
 ## 0.13.9
 
 - Add basic support to extract text from DND5E's "Map Location" Journal Page Type
