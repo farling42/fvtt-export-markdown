@@ -581,7 +581,7 @@ async function maybeTemplate(path, doc) {
     // Apply the supplied template file:
     // Foundry renderTemplate only supports templates with file extensions: html, handlebars, hbs
     // Foundry filePicker hides all files with extension html, handlebars, hbs
-    const markdown = await myRenderTemplate(templatePath, doc).catch(err => {
+    let markdown = await myRenderTemplate(templatePath, doc).catch(err => {
         ui.notifications.warn(`Handlers Error: ${err.message}`);
         throw err;
     })
