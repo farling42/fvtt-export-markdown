@@ -2,7 +2,6 @@ import "./lib/jszip.min.js";
 import { TurndownService } from "./lib/turndown.js";
 import { TurndownPluginGfmService } from "./lib/turndown-plugin-gfm.js";
 import "./lib/js-yaml.min.js";
-import replaceAsync from "./lib/string-replace-async.js";
 import * as MOD_CONFIG from "./config.js";
 import { myRenderTemplate, clearTemplateCache } from "./render-template.js"
 
@@ -51,7 +50,9 @@ class DOCUMENT_ICON {
  * @param {Object} from Either a folder or a Journal, selected from the sidebar
  */
 
-export function validFilename(name) {
+export function validFilename(from) {
+    // Strip leading "." (since Obsidian and Linux hides such files)
+    const name = from.startsWith('.') ? from.slice(1) : from;
     const regexp = /[<>:"/\\|?*]/g;
     return name.replaceAll(regexp, '_');
 }
@@ -232,10 +233,9 @@ function convertLinks(markdown, relativeTo) {
         // The linked failed, so attempt to use 'fromUuid' in an Async manner.
         // The returned promise will be processed by patchAsyncLinks()
         const marker = `${STORED_LINK_PREFIX}${foundry.utils.randomID(10)}`;
-        stored_links[marker] = new Promise(resolve =>
-            fromUuid(target, { relative: relativeTo, strict: false })
-			.then(linkdoc => resolve(postProcess(linkdoc)))
-			.catch(err => resolve(postProcess(undefined))));
+        stored_links[marker] = new Promise(resolve => fromUuid(target, { relative: relativeTo, strict: false })
+			    .then(linkdoc => resolve(postProcess(linkdoc)))
+			    .catch(err => resolve(postProcess(undefined))));
         return marker;  // it will be replaced later in convertHtml
     }
 
@@ -433,7 +433,7 @@ async function oneScene(path, scene) {
 		// pageId (optional) => JournalEntry.entryId.JournalEntryPage.pageId
         const linkdoc = note.page || note.entry; // not valid inside Adventure
         const linkfile = linkdoc ? notefilename(linkdoc) : "Not Linked";
-        // Leaflet plugin doesn't like ":" appearsing in the Note's label.
+        // Leaflet plugin doesn't like ":" appearing in the Note's label.
         const label = note.label.replaceAll(":", "_");
 
         // invert Y coordinate, and remove the padding from the note's X,Y position
@@ -788,8 +788,9 @@ function documentContextOptions(app, options) {
         name: `${MODULE_NAME}.exportToMarkdown`,
         icon: '<i class="fas fa-file-zip"></i>',
         condition: () => game.user.isGM,
-        callback: li => {
-            const entry = app.collection.get(li.dataset.entryId);
+        callback: async li => {
+            let entry = app.collection.get(li.dataset.entryId);
+            if (!entry) entry = await fromUuid(app.collection.index.get(li.dataset.entryId)?.uuid, {strict: false});
             if (entry) exportMarkdownFile(entry, ziprawfilename(entry.name, entry.constructor.name));
         },
     });
