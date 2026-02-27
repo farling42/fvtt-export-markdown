@@ -271,7 +271,7 @@ export async function convertHtml(doc, html) {
         const include_gm = game.settings.get(MOD_CONFIG.MODULE_NAME, MOD_CONFIG.OPTION_INCLUDE_GM_ONLY);
         const part2 = await foundry.applications.ux.TextEditor.implementation.enrichHTML(part1, { secrets: include_gm });
         markdown = turndownService.turndown(part2).replaceAll("\\[\\[", "[[").replaceAll("\\]\\]", "]]");
-        // Now convert file references
+        // Now convert file references: inside a table it will be "\_" rather than just "/"
         const filepattern = /!\[\]\(([^)]*)\)/g;
         markdown = markdown.replaceAll(filepattern, replaceLinkedFile);
     } catch (error) {
