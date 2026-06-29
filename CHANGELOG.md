@@ -1,8 +1,13 @@
 # CHANGELOG
 
-## 0.13.11
+## 1.0.1
 
 - Get `EMDconvertHtml` handlebars helper working again.
+
+## 1.0.0
+
+- Update verified compatibility version to 14
+- Strip leading "." on filenames so that they aren't hidden in Obsidian.
 
 ## 0.13.10
 
