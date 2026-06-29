@@ -4,6 +4,7 @@ import { TurndownPluginGfmService } from "./lib/turndown-plugin-gfm.js";
 import "./lib/js-yaml.min.js";
 import * as MOD_CONFIG from "./config.js";
 import { myRenderTemplate, clearTemplateCache } from "./render-template.js"
+import { AsyncStringManager } from "./async-string-manager.js"
 
 const MODULE_NAME = "export-markdown";
 const FRONTMATTER = "---\n";
@@ -14,7 +15,7 @@ const destForImages = "zz_asset-files";
 
 let zip;
 
-
+const asyncmgr = new AsyncStringManager;
 
 const IMG_SIZE = "150";
 
@@ -155,35 +156,13 @@ let stored_links = {};
 const STORED_LINK_PREFIX = 'marEMDker-';
 
 function dummyLink(target, label) {
-	// target is an ID, but we don't want to use that as the filename.
-	const use_target = !use_uuid_for_notename &&
-		(target.length === 16 || (target.length > 16 && target.at(-17) === '.')) &&
-		foundry.data.validators.isValidId(target.slice(-16));
+    // target is an ID, but we don't want to use that as the filename.
+    const use_target = !use_uuid_for_notename &&
+        (target.length === 16 || (target.length > 16 && target.at(-17) === '.')) &&
+        foundry.data.validators.isValidId(target.slice(-16));
 
     // Make sure that "|" in the ID don't start the label early (e.g. @PDF[whatever|page=name]{label})
-	return formatLink(use_target ? target : validFilename(label), label);
-}
-
-/**
- * Should be called after generating all the output text, before adding it to the output file.
- * @param {} value 
- * @returns 
- */
-async function patchAsyncLinks(string) {
-    if (!foundry.utils.isEmpty(stored_links) && string.includes(STORED_LINK_PREFIX)) {
-        //console.log(`DOC ${journal.name}: PAGE ${page.name} waiting for Promises of:`, stored_links);
-        // Wait for them all to resolve.
-        await Promise.all(Object.values(stored_links));
-        //console.log('BEFORE', markdown)
-        // Replace each marked with the real link.
-        // Each link is unique with a random ID, so replace not replaceAll
-        for (const [key, value] of Object.entries(stored_links)) {
-            string = string.replace(key, await value);
-            delete stored_links[key];
-        }
-        //if (markdown.includes('@UUID')) console.log('AFTER', markdown)
-    }
-    return string;
+    return formatLink(use_target ? target : validFilename(label), label);
 }
 
 function convertLinks(markdown, relativeTo) {
@@ -231,12 +210,11 @@ function convertLinks(markdown, relativeTo) {
         if (linkdoc) return postProcess(linkdoc);
 
         // The linked failed, so attempt to use 'fromUuid' in an Async manner.
-        // The returned promise will be processed by patchAsyncLinks()
-        const marker = `${STORED_LINK_PREFIX}${foundry.utils.randomID(10)}`;
-        stored_links[marker] = new Promise(resolve => fromUuid(target, { relative: relativeTo, strict: false })
-			    .then(linkdoc => resolve(postProcess(linkdoc)))
-			    .catch(err => resolve(postProcess(undefined))));
-        return marker;  // it will be replaced later in convertHtml
+        // The returned promise will be processed by AsyncStringManager.applyPatches()
+        return asyncmgr.addLink(new Promise(resolve => 
+            fromUuid(target, { relative: relativeTo, strict: false })
+            .then(linkdoc => resolve(postProcess(linkdoc)))
+            .catch(err => resolve(postProcess(undefined)))));
     }
 
     // Convert all the links
@@ -248,7 +226,7 @@ function convertLinks(markdown, relativeTo) {
     return markdown;
 }
 
-export async function convertHtml(doc, html) {
+export function convertHtml(doc, html) {
     // Foundry uses "showdown" rather than "turndown":
     // SHOWDOWN fails to parse tables at all
 
@@ -263,21 +241,24 @@ export async function convertHtml(doc, html) {
         gfm = TurndownPluginGfmService.gfm;
         turndownService.use(gfm);
     }
-    let markdown;
-    try {
-        // Convert links BEFORE doing HTML->MARKDOWN (to get links inside tables working properly)
-        // The conversion "escapes" the "[[...]]" markers, so we have to remove those markers afterwards
-        const part1 = convertLinks(html, doc);
-        const include_gm = game.settings.get(MOD_CONFIG.MODULE_NAME, MOD_CONFIG.OPTION_INCLUDE_GM_ONLY);
-        const part2 = await foundry.applications.ux.TextEditor.implementation.enrichHTML(part1, { secrets: include_gm });
-        markdown = turndownService.turndown(part2).replaceAll("\\[\\[", "[[").replaceAll("\\]\\]", "]]");
-        // Now convert file references: inside a table it will be "\_" rather than just "/"
-        const filepattern = /!\[\]\(([^)]*)\)/g;
-        markdown = markdown.replaceAll(filepattern, replaceLinkedFile);
-    } catch (error) {
-        console.warn(`Error: failed to decode html:`, html)
-    }
-    return markdown;
+    return asyncmgr.addLink(new Promise(resolve => {
+        try {
+            // Convert links BEFORE doing HTML->MARKDOWN (to get links inside tables working properly)
+            // The conversion "escapes" the "[[...]]" markers, so we have to remove those markers afterwards
+            const part1 = convertLinks(html, doc);
+            const include_gm = game.settings.get(MOD_CONFIG.MODULE_NAME, MOD_CONFIG.OPTION_INCLUDE_GM_ONLY);
+            foundry.applications.ux.TextEditor.implementation.enrichHTML(part1, { secrets: include_gm }).then(part2 => {
+                let markdown = turndownService.turndown(part2).replaceAll("\\[\\[", "[[").replaceAll("\\]\\]", "]]");
+                // Now convert file references: inside a table it will be "\_" rather than just "/"
+                const filepattern = /!\[\]\(([^)]*)\)/g;
+                const result = markdown.replaceAll(filepattern, replaceLinkedFile)
+                resolve(result);
+            })
+        } catch (error) {
+            //console.warn(`Error: failed to decode html:`, html)
+            resolve("");
+        }
+    }))
 }
 
 function frontmatter(doc, showheader = true) {
@@ -286,7 +267,7 @@ function frontmatter(doc, showheader = true) {
     return FRONTMATTER +
         `title: "${doc.name}"\n` +
         `icon: "${DOCUMENT_ICON.lookup(doc)}"\n` +
-        mapid + 
+        mapid +
         `aliases: "${doc.name}"\n` +
         `foundryId: ${doc.uuid}\n` +
         `tags:\n  - ${doc.documentName}\n` +
@@ -333,7 +314,7 @@ async function oneJournal(path, journal) {
                         // enrichHTML will call _primeCompendiums which will pre-load all compendiums
                         // for when we do the actual conversion.
                         await foundry.applications.ux.TextEditor.implementation.enrichHTML(page.text.content, { secrets: include_gm });
-                        markdown = await convertHtml(page, page.text.content);
+                        markdown = convertHtml(page, page.text.content);
                         break;
                     case CONST.JOURNAL_ENTRY_PAGE_FORMATS.MARKDOWN:
                         markdown = page.text.markdown;
@@ -346,7 +327,7 @@ async function oneJournal(path, journal) {
                 break;
         }
         if (markdown) {
-            markdown = frontmatter(page, page.title.show) + await patchAsyncLinks(markdown);
+            markdown = frontmatter(page, page.title.show) + await asyncmgr.applyPatches(markdown);
             zip.folder(subpath).file(`${notefilename(page)}.md`, markdown, { binary: false });
         }
     }
@@ -370,7 +351,7 @@ async function oneRollTable(path, table) {
         markdown += `| ${range} | ${(convertLinks(body)).replaceAll("|", "\\|")} |\n`;
     }
 
-    markdown = await patchAsyncLinks(markdown);
+    markdown = await asyncmgr.applyPatches(markdown);
 
     // No path for tables
     zip.folder(path).file(zipfilename(table), markdown, { binary: false });
@@ -378,7 +359,7 @@ async function oneRollTable(path, table) {
 
 async function oneScene(path, scene) {
 
-	// scene.dimensions does not exist when scene is from an Adventure
+    // scene.dimensions does not exist when scene is from an Adventure
 
     const sceneBottom = Math.floor(scene.padding * scene.height) + scene.height;
     const sceneLeft = Math.floor(scene.padding * scene.width);
@@ -428,9 +409,9 @@ async function oneScene(path, scene) {
         layers;
 
     for (const note of scene.notes) {
-		// for Adventure, need to use entryId and pageId:
-		// entryId => JournalEntry.entryId
-		// pageId (optional) => JournalEntry.entryId.JournalEntryPage.pageId
+        // for Adventure, need to use entryId and pageId:
+        // entryId => JournalEntry.entryId
+        // pageId (optional) => JournalEntry.entryId.JournalEntryPage.pageId
         const linkdoc = note.page || note.entry; // not valid inside Adventure
         const linkfile = linkdoc ? notefilename(linkdoc) : "Not Linked";
         // Leaflet plugin doesn't like ":" appearing in the Note's label.
@@ -480,54 +461,54 @@ async function onePlaylist(path, playlist) {
 }
 
 async function oneAdventure(advpath, adventure) {
-	console.log(adventure);
+    console.log(adventure);
 
-	let basepath = formpath(advpath, validFilename(adventure.name));
+    let basepath = formpath(advpath, validFilename(adventure.name));
 
-	if (adventure.actors.size) {
-		const path = formpath(basepath, 'actors');
-		for (const actor of adventure.actors) await maybeTemplate(path, actor); // oneActor
-	}
-	if (adventure.cards.size) {
-		const path = formpath(basepath, 'cards');
-		for (const card of adventure.cards) await maybeTemplate(path, card); // oneCard
-	}
-	if (adventure.combats.size) {
-		const path = formpath(basepath, 'combats');
-		for (const combat of adventure.combats) await maybeTemplate(path, combat); // oneCombat
-	}
-	if (adventure.items.size) {
-		const path = formpath(basepath, 'items');
-		for (const item of adventure.items) await maybeTemplate(path, item); // oneItem
-	}
-	if (adventure.journal.size) {
-		const path = formpath(basepath, 'journals');
-		for (const journal of adventure.journal) await oneJournal(path, journal);
-	}
-	if (adventure.macros.size) {
-		const path = formpath(basepath, 'macros');
-		for (const macro of adventure.macros) await maybeTemplate(path, macro); // oneMacro
-	}
-	if (adventure.playlists.size) {
-		const path = formpath(basepath, 'playlists');
-		for (const playlist of adventure.playlists) await onePlaylist(path, playlist);
-	}
-	if (adventure.scenes.size) {
-		const path = formpath(basepath, 'scenes');
-		for (const scene of adventure.scenes) await oneScene(path, scene);
-	}
-	if (adventure.tables.size) {
-		const path = formpath(basepath, 'tables');
-		for (const table of adventure.tables) await oneRollTable(path, table);
-	}
+    if (adventure.actors.size) {
+        const path = formpath(basepath, 'actors');
+        for (const actor of adventure.actors) await maybeTemplate(path, actor); // oneActor
+    }
+    if (adventure.cards.size) {
+        const path = formpath(basepath, 'cards');
+        for (const card of adventure.cards) await maybeTemplate(path, card); // oneCard
+    }
+    if (adventure.combats.size) {
+        const path = formpath(basepath, 'combats');
+        for (const combat of adventure.combats) await maybeTemplate(path, combat); // oneCombat
+    }
+    if (adventure.items.size) {
+        const path = formpath(basepath, 'items');
+        for (const item of adventure.items) await maybeTemplate(path, item); // oneItem
+    }
+    if (adventure.journal.size) {
+        const path = formpath(basepath, 'journals');
+        for (const journal of adventure.journal) await oneJournal(path, journal);
+    }
+    if (adventure.macros.size) {
+        const path = formpath(basepath, 'macros');
+        for (const macro of adventure.macros) await maybeTemplate(path, macro); // oneMacro
+    }
+    if (adventure.playlists.size) {
+        const path = formpath(basepath, 'playlists');
+        for (const playlist of adventure.playlists) await onePlaylist(path, playlist);
+    }
+    if (adventure.scenes.size) {
+        const path = formpath(basepath, 'scenes');
+        for (const scene of adventure.scenes) await oneScene(path, scene);
+    }
+    if (adventure.tables.size) {
+        const path = formpath(basepath, 'tables');
+        for (const table of adventure.tables) await oneRollTable(path, table);
+    }
 }
 
 async function documentToJSON(path, doc) {
     // see Foundry exportToJSON
-	//if (!doc.toCompendium) {
-	//	console.error(`Document ${doc.documentName} does not have a toCompendium() function`);
-	//	return;
-	//}
+    //if (!doc.toCompendium) {
+    //	console.error(`Document ${doc.documentName} does not have a toCompendium() function`);
+    //	return;
+    //}
 
     const data = doc.toCompendium ? doc.toCompendium(null) : doc.toObject();
     // Remove things the user is unlikely to need
@@ -544,7 +525,7 @@ async function documentToJSON(path, doc) {
     ]
     for (const field of DESCRIPTIONS) {
         let text = foundry.utils.getProperty(doc, field);
-        if (text) markdown += await convertHtml(doc, text) + EOL + EOL;
+        if (text) markdown += convertHtml(doc, text) + EOL + EOL;
     }
 
     let datastring;
@@ -565,7 +546,7 @@ async function documentToJSON(path, doc) {
         datastring +
         MARKER + EOL;
 
-    markdown = await patchAsyncLinks(markdown);
+    markdown = await asyncmgr.applyPatches(markdown);
 
     zip.folder(path).file(zipfilename(doc), markdown, { binary: false });
 }
@@ -586,7 +567,7 @@ async function maybeTemplate(path, doc) {
         throw err;
     })
 
-    markdown = await patchAsyncLinks(markdown);
+    markdown = await asyncmgr.applyPatches(markdown);
 
     zip.folder(path).file(zipfilename(doc), markdown, { binary: false });
 }
@@ -606,8 +587,8 @@ async function oneDocument(path, doc) {
         await oneScene(path, doc);
     else if (doc instanceof Playlist)
         await onePlaylist(path, doc);
-	else if (doc instanceof Adventure)
-		await oneAdventure(path, doc);
+    else if (doc instanceof Adventure)
+        await oneAdventure(path, doc);
     else
         await maybeTemplate(path, doc);
     // Actor
@@ -622,14 +603,13 @@ async function oneChatMessage(path, message) {
     let html = await message.getHTML();
     if (!html?.length) return message.export();
 
-    return `## ${new Date(message.timestamp).toLocaleString()}\n\n` +
-        await convertHtml(message, html[0].outerHTML);
+    return `## ${new Date(message.timestamp).toLocaleString()}\n\n` + convertHtml(message, html[0].outerHTML);
 }
 
 async function oneChatLog(path, chatlog) {
     // game.messages.export:
     // Messages.export()
-    let log = ""
+    let log = "";
     for (const message of chatlog.collection) {
         log += await oneChatMessage(path, message) + "\n\n---------------------------\n\n";
     }
@@ -637,7 +617,7 @@ async function oneChatLog(path, chatlog) {
     let date = new Date().toDateString().replace(/\s/g, "-");
     const filename = `log-${date}.md`;
 
-    log = await patchAsyncLinks(log);
+    log = await asyncmgr.applyPatches(log);
 
     zip.folder(path).file(filename, log, { binary: false });
 }
@@ -705,6 +685,7 @@ async function onePackFolder(path, folder) {
 async function generateMarkdownZip(from, zipformat = 'blob') {
 
     clearTemplateCache();
+    asyncmgr.reset();
 
     use_uuid_for_journal_folder = game.settings.get(MOD_CONFIG.MODULE_NAME, MOD_CONFIG.OPTION_FOLDER_AS_UUID);
     use_uuid_for_notename = game.settings.get(MOD_CONFIG.MODULE_NAME, MOD_CONFIG.OPTION_NOTENAME_IS_UUID);
@@ -748,10 +729,10 @@ async function generateMarkdownZip(from, zipformat = 'blob') {
 
     const result = await zip.generateAsync({ type: zipformat });
     ui.notifications.remove(noteid);
-	// Allow the JSZip object to be reclaimed.
-	zip = undefined;
+    // Allow the JSZip object to be reclaimed.
+    zip = undefined;
 
-	return result;
+    return result;
 }
 
 async function exportMarkdownFile(from, zipname) {
@@ -790,7 +771,7 @@ function documentContextOptions(app, options) {
         condition: () => game.user.isGM,
         callback: async li => {
             let entry = app.collection.get(li.dataset.entryId);
-            if (!entry) entry = await fromUuid(app.collection.index.get(li.dataset.entryId)?.uuid, {strict: false});
+            if (!entry) entry = await fromUuid(app.collection.index.get(li.dataset.entryId)?.uuid, { strict: false });
             if (entry) exportMarkdownFile(entry, ziprawfilename(entry.name, entry.constructor.name));
         },
     });
@@ -846,5 +827,5 @@ Hooks.on("renderAbstractSidebarTab", async (app, html) => {
 })
 
 Hooks.on("init", () => {
-	game.modules.get(MODULE_NAME).api = { generateMarkdownZip };
+    game.modules.get(MODULE_NAME).api = { generateMarkdownZip };
 })

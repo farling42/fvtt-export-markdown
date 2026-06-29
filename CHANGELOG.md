@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## 0.13.11
+
+- Get `EMDconvertHtml` handlebars helper working again.
+
 ## 0.13.10
 
 - Prevent an exception occurringin maybeTemplate when using a template file.
